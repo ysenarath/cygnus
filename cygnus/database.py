@@ -10,11 +10,13 @@ engine = create_engine(
     DATABASE_URL,
     connect_args={"check_same_thread": False},
     pool_pre_ping=True,
-    pool_recycle=3600
+    pool_recycle=3600,
 )
+
 
 def init_db() -> None:
     SQLModel.metadata.create_all(engine)
+
 
 def get_session() -> Generator[Session, None, None]:
     session = Session(engine)
@@ -22,6 +24,7 @@ def get_session() -> Generator[Session, None, None]:
         yield session
     finally:
         session.close()
+
 
 # Dependency
 async def get_db() -> Generator[Session, None, None]:
