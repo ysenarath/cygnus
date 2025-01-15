@@ -14,7 +14,7 @@ export function FileList({ onFileDeleted }: FileListProps) {
     const filteredFiles = useMemo(() => {
         if (!searchQuery) return files;
         const query = searchQuery.toLowerCase();
-        return files.filter(file => 
+        return files.filter(file =>
             file.original_filename.toLowerCase().includes(query)
         );
     }, [files, searchQuery]);
@@ -105,43 +105,43 @@ export function FileList({ onFileDeleted }: FileListProps) {
             </div>
 
             <div className="space-y-4">
-              {filteredFiles.map(file => (
-                <div
-                    key={file.id}
-                    className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 flex items-center justify-between"
-                >
-                    <div className="flex-1 min-w-0">
-                        <h3 className="text-sm font-medium text-gray-900 truncate">
-                            {file.original_filename}
-                        </h3>
-                        <div className="mt-1 flex items-center text-sm text-gray-500 space-x-4">
-                            <span>{formatFileSize(file.size)}</span>
-                            <span>•</span>
-                            <span>{new Date(file.uploaded_at).toLocaleDateString()}</span>
+                {filteredFiles.map(file => (
+                    <div
+                        key={file.id}
+                        className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 flex items-center justify-between"
+                    >
+                        <div className="flex-1 min-w-0">
+                            <h3 className="text-sm font-medium text-gray-900 truncate">
+                                {file.original_filename}
+                            </h3>
+                            <div className="mt-1 flex items-center text-sm text-gray-500 space-x-4">
+                                <span>{formatFileSize(file.size)}</span>
+                                <span>•</span>
+                                <span>{new Date(file.uploaded_at).toLocaleDateString()}</span>
+                            </div>
+                            {file.description && (
+                                <p className="mt-1 text-sm text-gray-500 truncate">
+                                    {file.description}
+                                </p>
+                            )}
                         </div>
-                        {file.description && (
-                            <p className="mt-1 text-sm text-gray-500 truncate">
-                                {file.description}
-                            </p>
-                        )}
+                        <div className="ml-4 flex items-center space-x-2">
+                            <button
+                                onClick={() => handleDownload(file.id)}
+                                className="px-3 py-1 text-sm text-blue-600 hover:text-blue-800"
+                            >
+                                Download
+                            </button>
+                            <button
+                                onClick={() => handleDelete(file.id)}
+                                className="px-3 py-1 text-sm text-red-600 hover:text-red-800"
+                            >
+                                Delete
+                            </button>
+                        </div>
                     </div>
-                    <div className="ml-4 flex items-center space-x-2">
-                        <button
-                            onClick={() => handleDownload(file.id)}
-                            className="px-3 py-1 text-sm text-blue-600 hover:text-blue-800"
-                        >
-                            Download
-                        </button>
-                        <button
-                            onClick={() => handleDelete(file.id)}
-                            className="px-3 py-1 text-sm text-red-600 hover:text-red-800"
-                        >
-                            Delete
-                        </button>
-                    </div>
-                </div>
-              ))}
+                ))}
             </div>
-          </div>
-        );
+        </div>
+    );
 }
