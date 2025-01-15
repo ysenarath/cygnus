@@ -1,8 +1,7 @@
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from sqlmodel import Session
 
-from .database import init_db, get_db
+from .database import init_db, SessionDep
 from .routes import router as files_router
 
 app = FastAPI(title="Cygnus API")
@@ -30,7 +29,7 @@ app.include_router(files_router)
 
 
 @app.get("/api/health")
-async def health_check(db: Session = Depends(get_db)):
+async def health_check(db: SessionDep):
     """Health check endpoint that also verifies database connection"""
     try:
         # Test database connection

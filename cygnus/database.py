@@ -1,7 +1,6 @@
-from sqlmodel import SQLModel, create_engine, Session
-from typing import Generator
-import threading
 from fastapi import Depends
+from sqlmodel import Session, SQLModel, create_engine
+from typing import Annotated, Generator
 
 from .config import DATABASE_URL
 
@@ -19,15 +18,9 @@ def init_db() -> None:
 
 
 def get_session() -> Generator[Session, None, None]:
-    session = Session(engine)
-    try:
-        yield session
-    finally:
-        session.close()
-
-
-# Dependency
-async def get_db() -> Generator[Session, None, None]:
     """Dependency that provides a SQLModel session"""
     with Session(engine) as session:
         yield session
+
+
+SessionDep = Annotated[Session, Depends(get_session)]
