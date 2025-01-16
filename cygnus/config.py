@@ -11,6 +11,7 @@ EMBEDDINGS_DIR = CONFIG_DIR / "embeddings"
 if not EMBEDDINGS_DIR.exists():
     EMBEDDINGS_DIR.mkdir(parents=True)
 
+
 def load_config():
     if not CONFIG_DIR.exists():
         CONFIG_DIR.mkdir(parents=True)
@@ -23,13 +24,9 @@ def load_config():
                 "model": "sentence-transformers/all-MiniLM-L6-v2",
                 "device": "cpu",
                 "batch_size": 32,
-                "max_length": 512
+                "max_length": 512,
             },
-            "index": {
-                "metric": "cosine",
-                "ef_construction": 200,
-                "M": 16
-            }
+            "index": {"metric": "cosine", "ef_construction": 200, "M": 16},
         }
         CONFIG_FILE.write_text(toml.dumps(config))
         return config
