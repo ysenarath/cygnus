@@ -5,7 +5,7 @@ from sqlmodel import Session, select
 import uuid
 
 from .config import CONFIG_DIR
-from .models import FileModel, DocumentModel, SentenceModel
+from .models import FileModel, DocumentModel, SentenceModel, EmbeddingModel
 
 STORAGE_DIR = CONFIG_DIR / "files"
 
@@ -79,16 +79,19 @@ def delete_file(db: Session, file_id: int) -> bool:
     ).first()
 
     if document:
-        # Get sentences with their embeddings
+        # Get sentences
         sentences = db.exec(
             select(SentenceModel).where(SentenceModel.document_id == document.id)
         ).all()
 
         # Delete sentences and their embeddings
         for sentence in sentences:
-            # Delete embedding if it exists
-            if sentence.embedding:
-                db.delete(sentence.embedding)
+            # Get and delete embedding if it exists
+            embedding = db.exec(
+                select(EmbeddingModel).where(EmbeddingModel.sentence_id == sentence.id)
+            ).first()
+            if embedding:
+                db.delete(embedding)
             # Delete sentence
             db.delete(sentence)
 
