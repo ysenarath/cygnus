@@ -1,8 +1,9 @@
 from typing import List
-from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
+from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, BackgroundTasks
 from fastapi.responses import FileResponse
 from sqlmodel import Session
 from . import storage
+from . import embeddings
 from .database import get_session
 from .models import FileModel
 
@@ -13,11 +14,49 @@ router = APIRouter(prefix="/api/files")
 async def upload_file(
     file: UploadFile = File(...),
     description: str = None,
+    process: bool = True,
+    background_tasks: BackgroundTasks = None,
     db: Session = Depends(get_session),
 ):
-    """Upload a file to storage."""
+    """Upload a file to storage and optionally process it."""
     try:
-        return await storage.save_file(file, db, description)
+        file_model = await storage.save_file(file, db, description)
+        if process:
+            # Process document in background
+            background_tasks.add_task(
+                embeddings.processor.process_document, file_model, db
+            )
+        return file_model
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/index")
+async def create_index(
+    background_tasks: BackgroundTasks, db: Session = Depends(get_session)
+):
+    """Create or rebuild the vector search index."""
+    try:
+        background_tasks.add_task(embeddings.vector_index.create_index, db)
+        return {"status": "Index creation started"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/search")
+async def search_documents(query: str, k: int = 5, db: Session = Depends(get_session)):
+    """Search for similar sentences across all documents."""
+    try:
+        results = embeddings.vector_index.search(query, k, db)
+        return [
+            {
+                "text": result[0].text,
+                "score": float(result[1]),
+                "document_id": result[0].document_id,
+                "position": result[0].position,
+            }
+            for result in results
+        ]
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

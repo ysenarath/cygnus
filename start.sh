@@ -45,7 +45,7 @@ cd ..
 # Start both services
 echo "Starting services..."
 # Start the backend first to ensure it's available when frontend loads
-poetry run uvicorn cygnus.main:app --reload --port 8000 & 
+poetry run uvicorn "cygnus.main:app" --reload --port 8000 & 
 BACKEND_PID=$!
 
 # Wait a bit for backend to start

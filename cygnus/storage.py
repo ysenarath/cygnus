@@ -5,7 +5,7 @@ from sqlmodel import Session, select
 import uuid
 
 from .config import CONFIG_DIR
-from .models import FileModel
+from .models import FileModel, DocumentModel, SentenceModel
 
 STORAGE_DIR = CONFIG_DIR / "files"
 
@@ -67,16 +67,40 @@ def get_file(db: Session, file_id: int):
 
 def delete_file(db: Session, file_id: int) -> bool:
     """Delete a file and its metadata."""
-    db_file = get_file(db, file_id)
+    # Get file with all relationships loaded
+    statement = select(FileModel).where(FileModel.id == file_id)
+    db_file = db.exec(statement).first()
     if not db_file:
         return False
+
+    # Get associated document if it exists
+    document = db.exec(
+        select(DocumentModel).where(DocumentModel.file_id == file_id)
+    ).first()
+
+    if document:
+        # Get sentences with their embeddings
+        sentences = db.exec(
+            select(SentenceModel).where(SentenceModel.document_id == document.id)
+        ).all()
+
+        # Delete sentences and their embeddings
+        for sentence in sentences:
+            # Delete embedding if it exists
+            if sentence.embedding:
+                db.delete(sentence.embedding)
+            # Delete sentence
+            db.delete(sentence)
+
+        # Delete document
+        db.delete(document)
 
     # Delete physical file
     file_path = get_file_path(db_file.filename)
     if file_path.exists():
         file_path.unlink()
 
-    # Delete database record
+    # Delete file record
     db.delete(db_file)
     db.commit()
 

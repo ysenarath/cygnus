@@ -14,6 +14,11 @@ engine = create_engine(
 
 
 def init_db() -> None:
+    """Initialize database tables.
+
+    Args:
+        recreate: If True, drop all tables before creating them.
+    """
     SQLModel.metadata.create_all(engine)
 
 
