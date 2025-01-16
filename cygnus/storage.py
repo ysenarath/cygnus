@@ -4,7 +4,7 @@ from fastapi import UploadFile
 from sqlmodel import Session, select
 import uuid
 
-from .config import CONFIG_DIR
+from .config import CONFIG_DIR, EMBEDDINGS_DIR
 from .models import FileModel, DocumentModel, SentenceModel, EmbeddingModel
 
 STORAGE_DIR = CONFIG_DIR / "files"
@@ -91,12 +91,26 @@ def delete_file(db: Session, file_id: int) -> bool:
                 select(EmbeddingModel).where(EmbeddingModel.sentence_id == sentence.id)
             ).first()
             if embedding:
+                # Delete the embedding vector file if it exists
+                vector_file = EMBEDDINGS_DIR / embedding.vector_file
+                if vector_file.exists():
+                    vector_file.unlink()
                 db.delete(embedding)
             # Delete sentence
             db.delete(sentence)
 
         # Delete document
         db.delete(document)
+
+        # Delete vector index mapping file if it exists
+        mapping_file = EMBEDDINGS_DIR / "vector_mapping.json"
+        if mapping_file.exists():
+            mapping_file.unlink()
+
+        # Delete vector index file if it exists
+        index_file = EMBEDDINGS_DIR / "vector_index.bin"
+        if index_file.exists():
+            index_file.unlink()
 
     # Delete physical file
     file_path = get_file_path(db_file.filename)

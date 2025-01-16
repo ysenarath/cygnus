@@ -22,10 +22,12 @@ async def upload_file(
     try:
         file_model = await storage.save_file(file, db, description)
         if process:
-            # Process document in background
-            background_tasks.add_task(
-                embeddings.processor.process_document, file_model, db
-            )
+            # Process document and rebuild index in background
+            def process_and_index():
+                embeddings.processor.process_document(file_model, db)
+                embeddings.vector_index.create_index(db)
+
+            background_tasks.add_task(process_and_index)
         return file_model
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
