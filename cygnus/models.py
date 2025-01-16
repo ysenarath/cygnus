@@ -1,6 +1,13 @@
 from datetime import datetime
+from enum import Enum
 from typing import Optional, List
 from sqlmodel import SQLModel, Field, Relationship
+
+class ProcessingStatus(str, Enum):
+    PENDING = "pending"
+    PROCESSING = "processing"
+    COMPLETED = "completed"
+    FAILED = "failed"
 
 
 class FileModel(SQLModel, table=True):
@@ -13,6 +20,9 @@ class FileModel(SQLModel, table=True):
     size: int
     uploaded_at: datetime = Field(default_factory=datetime.utcnow)
     description: Optional[str] = None
+    processing_status: ProcessingStatus = Field(default=ProcessingStatus.PENDING)
+    processing_error: Optional[str] = None
+    last_processing_attempt: Optional[datetime] = None
 
     # Relationship
     document: Optional["DocumentModel"] = Relationship(back_populates="file")

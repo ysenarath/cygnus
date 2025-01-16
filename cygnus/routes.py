@@ -1,11 +1,12 @@
 from typing import List
+from datetime import datetime
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, BackgroundTasks
 from fastapi.responses import FileResponse
-from sqlmodel import Session
+from sqlmodel import Session, select
 from . import storage
 from . import embeddings
 from .database import get_session
-from .models import FileModel
+from .models import FileModel, ProcessingStatus
 
 router = APIRouter(prefix="/api/files")
 
@@ -24,8 +25,28 @@ async def upload_file(
         if process:
             # Process document and rebuild index in background
             def process_and_index():
-                embeddings.processor.process_document(file_model, db)
-                embeddings.vector_index.create_index(db)
+                try:
+                    # Update status to processing
+                    file_model.processing_status = ProcessingStatus.PROCESSING
+                    file_model.last_processing_attempt = datetime.utcnow()
+                    db.add(file_model)
+                    db.commit()
+                    
+                    # Process the document
+                    embeddings.processor.process_document(file_model, db)
+                    embeddings.vector_index.create_index(db)
+                    
+                    # Update status to completed
+                    file_model.processing_status = ProcessingStatus.COMPLETED
+                    db.add(file_model)
+                    db.commit()
+                except Exception as e:
+                    # Update status to failed
+                    file_model.processing_status = ProcessingStatus.FAILED
+                    file_model.processing_error = str(e)
+                    db.add(file_model)
+                    db.commit()
+                    raise
 
             background_tasks.add_task(process_and_index)
         return file_model
@@ -104,3 +125,60 @@ async def delete_file(file_id: int, db: Session = Depends(get_session)):
     if not storage.delete_file(db, file_id):
         raise HTTPException(status_code=404, detail="File not found")
     return {"status": "success"}
+
+
+@router.get("/pending")
+async def get_pending_files(db: Session = Depends(get_session)):
+    """Get all files that need processing."""
+    query = select(FileModel).where(
+        FileModel.processing_status.in_([ProcessingStatus.PENDING, ProcessingStatus.FAILED])
+    )
+    return db.exec(query).all()
+
+
+@router.post("/{file_id}/retry")
+async def retry_processing(
+    file_id: int,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_session)
+):
+    """Retry processing a failed file."""
+    file_model = db.get(FileModel, file_id)
+    if not file_model:
+        raise HTTPException(status_code=404, detail="File not found")
+    
+    if file_model.processing_status not in [ProcessingStatus.FAILED, ProcessingStatus.PENDING]:
+        raise HTTPException(
+            status_code=400,
+            detail=f"File is in {file_model.processing_status} state. Only failed or pending files can be retried."
+        )
+    
+    # Reset status and error
+    file_model.processing_status = ProcessingStatus.PENDING
+    file_model.processing_error = None
+    db.add(file_model)
+    db.commit()
+    
+    # Start processing
+    def process_and_index():
+        try:
+            file_model.processing_status = ProcessingStatus.PROCESSING
+            file_model.last_processing_attempt = datetime.utcnow()
+            db.add(file_model)
+            db.commit()
+            
+            embeddings.processor.process_document(file_model, db)
+            embeddings.vector_index.create_index(db)
+            
+            file_model.processing_status = ProcessingStatus.COMPLETED
+            db.add(file_model)
+            db.commit()
+        except Exception as e:
+            file_model.processing_status = ProcessingStatus.FAILED
+            file_model.processing_error = str(e)
+            db.add(file_model)
+            db.commit()
+            raise
+
+    background_tasks.add_task(process_and_index)
+    return {"status": "Processing started"}

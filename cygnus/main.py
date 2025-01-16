@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .database import init_db, SessionDep
 from .routes import router as files_router
+from .scheduler import processor
 
 app = FastAPI(title="Cygnus API")
 
@@ -22,6 +23,14 @@ app.add_middleware(
 @app.on_event("startup")
 async def on_startup():
     init_db()
+    # Start the document processor scheduler (check every 5 minutes)
+    processor.start(interval_minutes=5)
+
+
+@app.on_event("shutdown")
+async def on_shutdown():
+    # Stop the document processor scheduler
+    processor.stop()
 
 
 # Include file routes
