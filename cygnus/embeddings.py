@@ -157,7 +157,9 @@ class VectorIndex:
         # Load mapping
         with open(self.mapping_path) as f:
             mapping = json.load(f)
-            self.mapping = {int(k): v for k, v in mapping.items()}  # Convert string keys to int
+            self.mapping = {
+                int(k): v for k, v in mapping.items()
+            }  # Convert string keys to int
 
         # Load first document's embeddings to get dimensions
         first_emb = db.query(EmbeddingModel).first()
