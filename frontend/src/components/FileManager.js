@@ -51,6 +51,7 @@ const FileManager = ({ user, onLogout }) => {
   const [moveCurrentFolder, setMoveCurrentFolder] = useState(null);
   const [movePath, setMovePath] = useState([]);
   const [viewMode, setViewMode] = useState("list");
+  const [selectedNodes, setSelectedNodes] = useState([]);
   const fileInputRef = useRef(null);
 
   const loadNodes = useCallback(async (page = currentPage) => {
@@ -273,20 +274,20 @@ const FileManager = ({ user, onLogout }) => {
   const navigateToMoveFolder = async (folder) => {
     setMoveCurrentFolder(folder.id);
     setMovePath([...movePath, folder]);
-    await loadMoveFolders(folder.id, selectedNode.id);
+    await loadMoveFolders(folder.id, selectedNode?.id || null);
   };
 
   const navigateToMovePath = async (index) => {
     if (index === -1) {
       setMoveCurrentFolder(null);
       setMovePath([]);
-      await loadMoveFolders(null, selectedNode.id);
+      await loadMoveFolders(null, selectedNode?.id || null);
     } else {
       const newPath = movePath.slice(0, index + 1);
       const folderId = newPath[newPath.length - 1].id;
       setMoveCurrentFolder(folderId);
       setMovePath(newPath);
-      await loadMoveFolders(folderId, selectedNode.id);
+      await loadMoveFolders(folderId, selectedNode?.id || null);
     }
   };
 
@@ -297,14 +298,32 @@ const FileManager = ({ user, onLogout }) => {
         selectedDestination === "current"
           ? moveCurrentFolder
           : selectedDestination;
-      const response = await updateNode(selectedNode.id, {
-        parent_id: destinationId,
-      });
-      if (response.node) {
+      
+      // If moving from bulk selection, move all selected items
+      if (selectedNodes.length > 0) {
+        for (const nodeId of selectedNodes) {
+          try {
+            await updateNode(nodeId, {
+              parent_id: destinationId,
+            });
+          } catch (err) {
+            console.error(`Failed to move node ${nodeId}:`, err);
+          }
+        }
         setShowMoveDialog(false);
+        clearSelection();
         loadNodes();
       } else {
-        setError(response.message || "Failed to move item");
+        // Single item move from row action
+        const response = await updateNode(selectedNode.id, {
+          parent_id: destinationId,
+        });
+        if (response.node) {
+          setShowMoveDialog(false);
+          loadNodes();
+        } else {
+          setError(response.message || "Failed to move item");
+        }
       }
     } catch (err) {
       setError("Failed to move item");
@@ -329,6 +348,98 @@ const FileManager = ({ user, onLogout }) => {
     } catch (err) {
       setError("Failed to rename node");
       console.error(err);
+    }
+  };
+
+  const toggleNodeSelection = (nodeId) => {
+    setSelectedNodes((prev) =>
+      prev.includes(nodeId)
+        ? prev.filter((id) => id !== nodeId)
+        : [...prev, nodeId]
+    );
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedNodes.length === nodes.length) {
+      setSelectedNodes([]);
+    } else {
+      setSelectedNodes(nodes.map((node) => node.id));
+    }
+  };
+
+  const clearSelection = () => {
+    setSelectedNodes([]);
+  };
+
+  const handleBulkDownload = async () => {
+    const selectedFiles = nodes.filter(
+      (node) => selectedNodes.includes(node.id) && node.type === "file"
+    );
+    for (const file of selectedFiles) {
+      try {
+        await handleDownload(file);
+      } catch (err) {
+        console.error(`Failed to download ${file.name}:`, err);
+      }
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (
+      !window.confirm(
+        `Are you sure you want to delete ${selectedNodes.length} item(s)?`
+      )
+    ) {
+      return;
+    }
+
+    for (const nodeId of selectedNodes) {
+      const node = nodes.find((n) => n.id === nodeId);
+      if (node) {
+        try {
+          await deleteNode(node.id);
+        } catch (err) {
+          console.error(`Failed to delete ${node.name}:`, err);
+        }
+      }
+    }
+    clearSelection();
+    loadNodes();
+  };
+
+  const handleBulkShare = () => {
+    if (selectedNodes.length === 1) {
+      const node = nodes.find((n) => n.id === selectedNodes[0]);
+      openShareDialog(node);
+    }
+  };
+
+  const handleBulkRename = () => {
+    if (selectedNodes.length === 1) {
+      const node = nodes.find((n) => n.id === selectedNodes[0]);
+      openRenameDialog(node);
+    }
+  };
+
+  const handleBulkMove = async () => {
+    if (selectedNodes.length >= 1) {
+      // For multiple items, we'll move them all to the same destination
+      setSelectedNode(null); // Clear individual selection
+      setSelectedDestination(null);
+      setMoveCurrentFolder(null);
+      setMovePath([]);
+      setShowMoveDialog(true);
+
+      // Load root folders for move destination
+      // Pass null to not exclude any specific node
+      await loadMoveFolders(null, null);
+    }
+  };
+
+  const handleBulkPermissions = () => {
+    if (selectedNodes.length === 1) {
+      const node = nodes.find((n) => n.id === selectedNodes[0]);
+      openPermissions(node);
     }
   };
 
@@ -493,47 +604,133 @@ const FileManager = ({ user, onLogout }) => {
             </div>
           </div>
 
-          <div className="bg-light-surface dark:bg-dark-surface border-b border-light-border dark:border-dark-border px-4 py-2 flex items-center space-x-2">
-            <button
-              onClick={() => setShowCreateFolder(true)}
-              className="flex items-center space-x-1.5 px-3 py-1.5 text-sm font-medium text-light-text dark:text-dark-text bg-light-bg dark:bg-dark-bg hover:bg-light-border dark:hover:bg-dark-border rounded-lg transition-colors"
-            >
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
-              </svg>
-              <span>New Folder</span>
-            </button>
-            <button
-              onClick={() => fileInputRef.current.click()}
-              className="flex items-center space-x-1.5 px-3 py-1.5 text-sm font-medium text-white bg-light-primary dark:bg-dark-primary hover:bg-light-primary-hover dark:hover:bg-dark-primary-hover rounded-lg transition-colors"
-            >
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                <path
-                  fillRule="evenodd"
-                  d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z"
-                  clipRule="evenodd"
+          <div className="bg-light-surface dark:bg-dark-surface border-b border-light-border dark:border-dark-border px-4 py-2">
+            {selectedNodes.length > 0 ? (
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <span className="text-sm font-medium text-light-text dark:text-dark-text">
+                    {selectedNodes.length} selected
+                  </span>
+                  <button
+                    onClick={clearSelection}
+                    className="text-sm text-light-text-secondary dark:text-dark-text-secondary hover:text-light-text dark:hover:text-dark-text"
+                  >
+                    Clear
+                  </button>
+                </div>
+                <div className="flex items-center space-x-2">
+                  {selectedNodes.filter((id) => nodes.find((n) => n.id === id && n.type === "file")).length > 0 && (
+                    <button
+                      onClick={handleBulkDownload}
+                      className="flex items-center space-x-1.5 px-3 py-1.5 text-sm font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                      title="Download"
+                    >
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+                      </svg>
+                      <span>Download</span>
+                    </button>
+                  )}
+                  <button
+                    onClick={handleBulkMove}
+                    className="flex items-center space-x-1.5 px-3 py-1.5 text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-colors"
+                    title="Move"
+                  >
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M7.707 3.293a1 1 0 010 1.414L5.414 7H11a7 7 0 017 7v2a1 1 0 11-2 0v-2a5 5 0 00-5-5H5.414l2.293 2.293a1 1 0 11-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                    <span>Move</span>
+                  </button>
+                  {selectedNodes.length === 1 && (
+                    <>
+                      <button
+                        onClick={handleBulkRename}
+                        className="flex items-center space-x-1.5 px-3 py-1.5 text-sm font-medium text-yellow-600 dark:text-yellow-400 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 rounded-lg transition-colors"
+                        title="Rename"
+                      >
+                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                          <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                        </svg>
+                        <span>Rename</span>
+                      </button>
+                      <button
+                        onClick={handleBulkShare}
+                        className="flex items-center space-x-1.5 px-3 py-1.5 text-sm font-medium text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-colors"
+                        title="Share"
+                      >
+                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                          <path d="M15 8a3 3 0 10-2.977-2.63l-4.94 2.47a3 3 0 100 4.319l4.94 2.47a3 3 0 10.895-1.789l-4.94-2.47a3.027 3.027 0 000-.74l4.94-2.47C13.456 7.68 14.19 8 15 8z" />
+                        </svg>
+                        <span>Share</span>
+                      </button>
+                      <button
+                        onClick={handleBulkPermissions}
+                        className="flex items-center space-x-1.5 px-3 py-1.5 text-sm font-medium text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg transition-colors"
+                        title="Permissions"
+                      >
+                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+                        </svg>
+                        <span>Permissions</span>
+                      </button>
+                    </>
+                  )}
+                  <button
+                    onClick={handleBulkDelete}
+                    className="flex items-center space-x-1.5 px-3 py-1.5 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                    title="Delete"
+                  >
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                    <span>Delete</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => setShowCreateFolder(true)}
+                  className="flex items-center space-x-1.5 px-3 py-1.5 text-sm font-medium text-light-text dark:text-dark-text bg-light-bg dark:bg-dark-bg hover:bg-light-border dark:hover:bg-dark-border rounded-lg transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
+                  </svg>
+                  <span>New Folder</span>
+                </button>
+                <button
+                  onClick={() => fileInputRef.current.click()}
+                  className="flex items-center space-x-1.5 px-3 py-1.5 text-sm font-medium text-white bg-light-primary dark:bg-dark-primary hover:bg-light-primary-hover dark:hover:bg-dark-primary-hover rounded-lg transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path
+                      fillRule="evenodd"
+                      d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                  <span>Upload</span>
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  onChange={handleFileUpload}
+                  className="hidden"
                 />
-              </svg>
-              <span>Upload</span>
-            </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              onChange={handleFileUpload}
-              className="hidden"
-            />
-            <button
-              onClick={() => loadNodes(currentPage)}
-              className="p-1.5 text-light-text-secondary dark:text-dark-text-secondary hover:bg-light-bg dark:hover:bg-dark-bg rounded-lg transition-colors"
-            >
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                <path
-                  fillRule="evenodd"
-                  d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z"
-                  clipRule="evenodd"
-                />
-              </svg>
-            </button>
+                <button
+                  onClick={() => loadNodes(currentPage)}
+                  className="p-1.5 text-light-text-secondary dark:text-dark-text-secondary hover:bg-light-bg dark:hover:bg-dark-bg rounded-lg transition-colors"
+                >
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path
+                      fillRule="evenodd"
+                      d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                </button>
+              </div>
+            )}
           </div>
 
           {error && (
@@ -605,11 +802,24 @@ const FileManager = ({ user, onLogout }) => {
                 {nodes.map((node) => (
                   <div
                     key={node.id}
-                    className="group relative p-3 rounded-lg hover:bg-light-surface dark:hover:bg-dark-surface border border-transparent hover:border-light-border dark:hover:border-dark-border transition-all cursor-pointer"
+                    className={`group relative p-3 rounded-lg hover:bg-light-surface dark:hover:bg-dark-surface border transition-all cursor-pointer ${
+                      selectedNodes.includes(node.id) 
+                        ? "bg-light-primary/5 dark:bg-dark-primary/5 border-light-primary dark:border-dark-primary" 
+                        : "border-transparent hover:border-light-border dark:hover:border-dark-border"
+                    }`}
                     onDoubleClick={() =>
                       node.type === "folder" && navigateToFolder(node)
                     }
                   >
+                    <div className="absolute top-2 left-2">
+                      <input
+                        type="checkbox"
+                        checked={selectedNodes.includes(node.id)}
+                        onChange={() => toggleNodeSelection(node.id)}
+                        onClick={(e) => e.stopPropagation()}
+                        className="rounded border-light-border dark:border-dark-border"
+                      />
+                    </div>
                     <div className="flex flex-col items-center">
                       {getFileIcon(node)}
                       <p className="mt-2 text-sm text-center text-light-text dark:text-dark-text truncate w-full">
@@ -649,6 +859,14 @@ const FileManager = ({ user, onLogout }) => {
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-light-border dark:border-dark-border">
+                      <th className="px-4 py-3 w-12">
+                        <input
+                          type="checkbox"
+                          checked={nodes.length > 0 && selectedNodes.length === nodes.length}
+                          onChange={toggleSelectAll}
+                          className="rounded border-light-border dark:border-dark-border"
+                        />
+                      </th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-light-text-secondary dark:text-dark-text-secondary uppercase tracking-wider">
                         Name
                       </th>
@@ -661,20 +879,28 @@ const FileManager = ({ user, onLogout }) => {
                       <th className="px-4 py-3 text-left text-xs font-semibold text-light-text-secondary dark:text-dark-text-secondary uppercase tracking-wider">
                         Modified
                       </th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-light-text-secondary dark:text-dark-text-secondary uppercase tracking-wider">
-                        Actions
-                      </th>
                     </tr>
                   </thead>
                   <tbody>
                     {nodes.map((node) => (
                       <tr
                         key={node.id}
-                        className="border-b border-light-border dark:border-dark-border hover:bg-light-bg dark:hover:bg-dark-bg cursor-pointer"
+                        className={`border-b border-light-border dark:border-dark-border hover:bg-light-bg dark:hover:bg-dark-bg cursor-pointer ${
+                          selectedNodes.includes(node.id) ? "bg-light-primary/5 dark:bg-dark-primary/5" : ""
+                        }`}
+                        onClick={() => toggleNodeSelection(node.id)}
                         onDoubleClick={() =>
                           node.type === "folder" && navigateToFolder(node)
                         }
                       >
+                        <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                          <input
+                            type="checkbox"
+                            checked={selectedNodes.includes(node.id)}
+                            onChange={() => toggleNodeSelection(node.id)}
+                            className="rounded border-light-border dark:border-dark-border"
+                          />
+                        </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center space-x-3">
                             <div className="flex-shrink-0">
@@ -715,124 +941,6 @@ const FileManager = ({ user, onLogout }) => {
                         </td>
                         <td className="px-4 py-3 text-sm text-light-text dark:text-dark-text">
                           {new Date(node.updated_at).toLocaleDateString()}
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center space-x-1">
-                            {node.type === "file" && (
-                              <button
-                                onClick={() => handleDownload(node)}
-                                className="p-1.5 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors group relative"
-                                title="Download"
-                              >
-                                <svg
-                                  className="w-4 h-4"
-                                  fill="currentColor"
-                                  viewBox="0 0 20 20"
-                                >
-                                  <path
-                                    fillRule="evenodd"
-                                    d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z"
-                                    clipRule="evenodd"
-                                  />
-                                </svg>
-                                <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none transition-opacity">
-                                  Download
-                                </span>
-                              </button>
-                            )}
-                            <button
-                              onClick={() => openRenameDialog(node)}
-                              className="p-1.5 text-yellow-600 dark:text-yellow-400 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 rounded transition-colors group relative"
-                              title="Rename"
-                            >
-                              <svg
-                                className="w-4 h-4"
-                                fill="currentColor"
-                                viewBox="0 0 20 20"
-                              >
-                                <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
-                              </svg>
-                              <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none transition-opacity">
-                                Rename
-                              </span>
-                            </button>
-                            <button
-                              onClick={() => openMoveDialog(node)}
-                              className="p-1.5 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded transition-colors group relative"
-                              title="Move"
-                            >
-                              <svg
-                                className="w-4 h-4"
-                                fill="currentColor"
-                                viewBox="0 0 20 20"
-                              >
-                                <path
-                                  fillRule="evenodd"
-                                  d="M7.707 3.293a1 1 0 010 1.414L5.414 7H11a7 7 0 017 7v2a1 1 0 11-2 0v-2a5 5 0 00-5-5H5.414l2.293 2.293a1 1 0 11-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z"
-                                  clipRule="evenodd"
-                                />
-                              </svg>
-                              <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none transition-opacity">
-                                Move
-                              </span>
-                            </button>
-                            <button
-                              onClick={() => openShareDialog(node)}
-                              className="p-1.5 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors group relative"
-                              title="Share"
-                            >
-                              <svg
-                                className="w-4 h-4"
-                                fill="currentColor"
-                                viewBox="0 0 20 20"
-                              >
-                                <path d="M15 8a3 3 0 10-2.977-2.63l-4.94 2.47a3 3 0 100 4.319l4.94 2.47a3 3 0 10.895-1.789l-4.94-2.47a3.027 3.027 0 000-.74l4.94-2.47C13.456 7.68 14.19 8 15 8z" />
-                              </svg>
-                              <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none transition-opacity">
-                                Share
-                              </span>
-                            </button>
-                            <button
-                              onClick={() => openPermissions(node)}
-                              className="p-1.5 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded transition-colors group relative"
-                              title="Permissions"
-                            >
-                              <svg
-                                className="w-4 h-4"
-                                fill="currentColor"
-                                viewBox="0 0 20 20"
-                              >
-                                <path
-                                  fillRule="evenodd"
-                                  d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
-                                  clipRule="evenodd"
-                                />
-                              </svg>
-                              <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none transition-opacity">
-                                Permissions
-                              </span>
-                            </button>
-                            <button
-                              onClick={() => handleDelete(node)}
-                              className="p-1.5 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors group relative"
-                              title="Delete"
-                            >
-                              <svg
-                                className="w-4 h-4"
-                                fill="currentColor"
-                                viewBox="0 0 20 20"
-                              >
-                                <path
-                                  fillRule="evenodd"
-                                  d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
-                                  clipRule="evenodd"
-                                />
-                              </svg>
-                              <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none transition-opacity">
-                                Delete
-                              </span>
-                            </button>
-                          </div>
                         </td>
                       </tr>
                     ))}
@@ -1095,7 +1203,7 @@ const FileManager = ({ user, onLogout }) => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-light-surface dark:bg-dark-surface p-6 rounded-lg shadow-xl max-w-lg w-full mx-4 border border-light-border dark:border-dark-border">
             <h2 className="text-xl font-bold mb-4 text-light-text dark:text-dark-text">
-              Move "{selectedNode?.name}"
+              {selectedNode ? `Move "${selectedNode.name}"` : `Move ${selectedNodes.length} item(s)`}
             </h2>
 
             {/* Breadcrumb Navigation */}
