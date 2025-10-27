@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import authService from "../services/authService";
+import profileService from "../services/profileService";
 
 function Dashboard({ user, onLogout }) {
   const [profileData, setProfileData] = useState(null);
@@ -15,7 +16,7 @@ function Dashboard({ user, onLogout }) {
     setLoading(true);
     setError("");
     try {
-      const data = await authService.getProfile();
+      const data = await profileService.getProfile();
       setProfileData(data.user);
     } catch (err) {
       setError(err.message);
