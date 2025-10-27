@@ -82,6 +82,14 @@ class SecurityConfig:
     ----------
     secret_key : str
         Secret key for sessions and tokens.
+    jwt_secret_key : str
+        JWT secret key.
+    jwt_access_token_expires : int
+        JWT access token expiration time in seconds.
+    jwt_refresh_token_expires : int
+        JWT refresh token expiration time in seconds.
+    jwt_algorithm : str
+        JWT algorithm.
     """
 
     secret_key: str
@@ -89,6 +97,20 @@ class SecurityConfig:
     jwt_access_token_expires: int
     jwt_refresh_token_expires: int
     jwt_algorithm: str
+
+
+@dataclass
+class StorageConfig:
+    """
+    Storage configuration.
+
+    Parameters
+    ----------
+    directory : str
+        Directory path for uploaded files (relative to project root).
+    """
+
+    directory: str
 
 
 @dataclass
@@ -106,12 +128,15 @@ class Config:
         API configuration.
     security : SecurityConfig
         Security configuration.
+    storage : StorageConfig
+        Storage configuration.
     """
 
     app: AppConfig
     database: DatabaseConfig
     api: ApiConfig
     security: SecurityConfig
+    storage: StorageConfig
 
 
 def load_config(path: Path | str | None = None) -> Config:

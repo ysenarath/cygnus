@@ -20,3 +20,6 @@ security:
   jwt_access_token_expires: 900  # 15 minutes in seconds
   jwt_refresh_token_expires: 604800  # 7 days in seconds
   jwt_algorithm: HS256
+
+storage:
+  directory: instance/storage  # Directory for uploaded files (relative to project root)

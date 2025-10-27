@@ -23,7 +23,14 @@ import os
 import mimetypes
 from werkzeug.utils import secure_filename
 
-from cygnus.models import Base, User, Resource as FileResource, Permission, PermissionLevel, ResourceType
+from cygnus.models import (
+    Base,
+    User,
+    Resource as FileResource,
+    Permission,
+    PermissionLevel,
+    ResourceType,
+)
 from cygnus.config import load_config
 
 # Load configuration
@@ -90,7 +97,9 @@ auth_ns = api.namespace("api/auth", description="Authentication operations")
 files_ns = api.namespace("api/files", description="File management operations")
 
 # Storage directory setup
-STORAGE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "storage")
+# Get storage directory from config (relative to project root)
+project_root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+STORAGE_DIR = os.path.join(project_root, config.storage.directory)
 os.makedirs(STORAGE_DIR, exist_ok=True)
 
 # Database setup
@@ -421,19 +430,21 @@ def get_user_permission(session, resource_id, user_id):
     resource = session.query(FileResource).filter_by(id=resource_id).first()
     if not resource:
         return None
-    
+
     # Owner has full permissions
     if resource.owner_id == user_id:
         return "owner"
-    
+
     # Check explicit permissions
-    permission = session.query(Permission).filter_by(
-        resource_id=resource_id, user_id=user_id
-    ).first()
-    
+    permission = (
+        session.query(Permission)
+        .filter_by(resource_id=resource_id, user_id=user_id)
+        .first()
+    )
+
     if permission:
         return permission.permission_level.value
-    
+
     return None
 
 
@@ -458,13 +469,13 @@ def has_permission(session, resource_id, user_id, required_level):
         True if user has required permission, False otherwise.
     """
     user_level = get_user_permission(session, resource_id, user_id)
-    
+
     if not user_level:
         return False
-    
+
     # Permission hierarchy: owner > editor > viewer
     levels = {"owner": 3, "editor": 2, "viewer": 1}
-    
+
     return levels.get(user_level, 0) >= levels.get(required_level, 0)
 
 
@@ -487,25 +498,33 @@ def get_accessible_resources(session, user_id, parent_id=None):
         List of accessible resources.
     """
     # Get resources owned by user or shared with user
-    owned = session.query(FileResource).filter_by(
-        owner_id=user_id, parent_id=parent_id, is_deleted=False
-    ).all()
-    
+    owned = (
+        session.query(FileResource)
+        .filter_by(owner_id=user_id, parent_id=parent_id, is_deleted=False)
+        .all()
+    )
+
     # Get resources shared with user
     shared_permissions = session.query(Permission).filter_by(user_id=user_id).all()
     shared_resource_ids = [p.resource_id for p in shared_permissions]
-    
-    shared = session.query(FileResource).filter(
-        and_(
-            FileResource.id.in_(shared_resource_ids),
-            FileResource.parent_id == parent_id,
-            FileResource.is_deleted == False
+
+    shared = (
+        session.query(FileResource)
+        .filter(
+            and_(
+                FileResource.id.in_(shared_resource_ids),
+                FileResource.parent_id == parent_id,
+                FileResource.is_deleted == False,
+            )
         )
-    ).all() if shared_resource_ids else []
-    
+        .all()
+        if shared_resource_ids
+        else []
+    )
+
     # Combine and deduplicate
     all_resources = {r.id: r for r in owned + shared}
-    
+
     return list(all_resources.values())
 
 
@@ -541,45 +560,56 @@ class FolderList(Resource):
         try:
             user_id = int(get_jwt_identity())
             data = request.json
-            
+
             if not data.get("name"):
                 return {"message": "Folder name is required"}, 400
-            
+
             # Validate parent folder if specified
             parent_id = data.get("parent_id")
             if parent_id:
-                parent = session.query(FileResource).filter_by(
-                    id=parent_id, resource_type=ResourceType.FOLDER, is_deleted=False
-                ).first()
-                
+                parent = (
+                    session.query(FileResource)
+                    .filter_by(
+                        id=parent_id,
+                        resource_type=ResourceType.FOLDER,
+                        is_deleted=False,
+                    )
+                    .first()
+                )
+
                 if not parent:
                     return {"message": "Parent folder not found"}, 404
-                
+
                 # Check if user has editor permission on parent
                 if not has_permission(session, parent_id, user_id, "editor"):
-                    return {"message": "No permission to create folder in this location"}, 403
-            
+                    return {
+                        "message": "No permission to create folder in this location"
+                    }, 403
+
             # Create folder
             folder = FileResource(
                 name=data["name"],
                 resource_type=ResourceType.FOLDER,
                 parent_id=parent_id,
-                owner_id=user_id
+                owner_id=user_id,
             )
-            
+
             session.add(folder)
             session.commit()
-            
+
             # Create owner permission
             permission = Permission(
                 resource_id=folder.id,
                 user_id=user_id,
-                permission_level=PermissionLevel.OWNER
+                permission_level=PermissionLevel.OWNER,
             )
             session.add(permission)
             session.commit()
-            
-            return {"message": "Folder created successfully", "folder": folder.to_dict()}, 201
+
+            return {
+                "message": "Folder created successfully",
+                "folder": folder.to_dict(),
+            }, 201
         except Exception as e:
             session.rollback()
             return {"message": f"Error creating folder: {str(e)}"}, 500
@@ -615,60 +645,69 @@ class FileUpload(Resource):
         session = Session()
         try:
             user_id = int(get_jwt_identity())
-            
+
             if "file" not in request.files:
                 return {"message": "No file provided"}, 400
-            
+
             file = request.files["file"]
             if file.filename == "":
                 return {"message": "No file selected"}, 400
-            
+
             parent_id = request.form.get("parent_id")
             if parent_id:
                 parent_id = int(parent_id)
-                parent = session.query(FileResource).filter_by(
-                    id=parent_id, resource_type=ResourceType.FOLDER, is_deleted=False
-                ).first()
-                
+                parent = (
+                    session.query(FileResource)
+                    .filter_by(
+                        id=parent_id,
+                        resource_type=ResourceType.FOLDER,
+                        is_deleted=False,
+                    )
+                    .first()
+                )
+
                 if not parent:
                     return {"message": "Parent folder not found"}, 404
-                
+
                 if not has_permission(session, parent_id, user_id, "editor"):
                     return {"message": "No permission to upload to this location"}, 403
-            
+
             # Create file resource
             filename = secure_filename(file.filename)
             mime_type = mimetypes.guess_type(filename)[0] or "application/octet-stream"
-            
+
             file_resource = FileResource(
                 name=filename,
                 resource_type=ResourceType.FILE,
                 parent_id=parent_id,
                 owner_id=user_id,
                 mime_type=mime_type,
-                file_size=0  # Will update after saving
+                file_size=0,  # Will update after saving
             )
-            
+
             session.add(file_resource)
             session.flush()  # Get the ID before committing
-            
+
             # Save file to storage with resource_id as filename
             file_path = os.path.join(STORAGE_DIR, file_resource.resource_id)
             file.save(file_path)
-            
+
             # Update file size
             file_resource.file_size = os.path.getsize(file_path)
-            
+
             # Create owner permission
             permission = Permission(
                 resource_id=file_resource.id,
                 user_id=user_id,
-                permission_level=PermissionLevel.OWNER
+                permission_level=PermissionLevel.OWNER,
             )
             session.add(permission)
             session.commit()
-            
-            return {"message": "File uploaded successfully", "file": file_resource.to_dict()}, 201
+
+            return {
+                "message": "File uploaded successfully",
+                "file": file_resource.to_dict(),
+            }, 201
         except Exception as e:
             session.rollback()
             return {"message": f"Error uploading file: {str(e)}"}, 500
@@ -704,25 +743,27 @@ class ResourceList(Resource):
         try:
             user_id = int(get_jwt_identity())
             parent_id = request.args.get("parent_id")
-            
+
             if parent_id:
                 parent_id = int(parent_id)
                 # Verify parent exists and user has access
-                parent = session.query(FileResource).filter_by(
-                    id=parent_id, is_deleted=False
-                ).first()
-                
+                parent = (
+                    session.query(FileResource)
+                    .filter_by(id=parent_id, is_deleted=False)
+                    .first()
+                )
+
                 if not parent:
                     return {"message": "Parent folder not found"}, 404
-                
+
                 if not has_permission(session, parent_id, user_id, "viewer"):
                     return {"message": "No permission to access this folder"}, 403
-            
+
             resources = get_accessible_resources(session, user_id, parent_id)
-            
+
             return {
                 "resources": [r.to_dict() for r in resources],
-                "count": len(resources)
+                "count": len(resources),
             }, 200
         except Exception as e:
             return {"message": f"Error listing resources: {str(e)}"}, 500
@@ -761,27 +802,31 @@ class FileDownload(Resource):
         session = Session()
         try:
             user_id = int(get_jwt_identity())
-            
-            resource = session.query(FileResource).filter_by(
-                id=resource_id, resource_type=ResourceType.FILE, is_deleted=False
-            ).first()
-            
+
+            resource = (
+                session.query(FileResource)
+                .filter_by(
+                    id=resource_id, resource_type=ResourceType.FILE, is_deleted=False
+                )
+                .first()
+            )
+
             if not resource:
                 return {"message": "File not found"}, 404
-            
+
             if not has_permission(session, resource_id, user_id, "viewer"):
                 return {"message": "No permission to access this file"}, 403
-            
+
             file_path = os.path.join(STORAGE_DIR, resource.resource_id)
-            
+
             if not os.path.exists(file_path):
                 return {"message": "File not found on disk"}, 404
-            
+
             return send_file(
                 file_path,
                 as_attachment=True,
                 download_name=resource.name,
-                mimetype=resource.mime_type
+                mimetype=resource.mime_type,
             )
         except Exception as e:
             return {"message": f"Error downloading file: {str(e)}"}, 500
@@ -827,53 +872,57 @@ class ResourceShare(Resource):
         try:
             user_id = int(get_jwt_identity())
             data = request.json
-            
+
             # Check if user is owner
-            resource = session.query(FileResource).filter_by(
-                id=resource_id, is_deleted=False
-            ).first()
-            
+            resource = (
+                session.query(FileResource)
+                .filter_by(id=resource_id, is_deleted=False)
+                .first()
+            )
+
             if not resource:
                 return {"message": "Resource not found"}, 404
-            
+
             if resource.owner_id != user_id:
                 return {"message": "Only owner can share resources"}, 403
-            
+
             # Validate target user exists
             target_user_id = data.get("user_id")
             target_user = session.query(User).filter_by(id=target_user_id).first()
-            
+
             if not target_user:
                 return {"message": "Target user not found"}, 404
-            
+
             if target_user_id == user_id:
                 return {"message": "Cannot share with yourself"}, 400
-            
+
             # Check permission level
             permission_level = data.get("permission_level")
             if permission_level not in ["owner", "editor", "viewer"]:
                 return {"message": "Invalid permission level"}, 400
-            
+
             # Check if permission already exists
-            existing = session.query(Permission).filter_by(
-                resource_id=resource_id, user_id=target_user_id
-            ).first()
-            
+            existing = (
+                session.query(Permission)
+                .filter_by(resource_id=resource_id, user_id=target_user_id)
+                .first()
+            )
+
             if existing:
                 # Update existing permission
                 existing.permission_level = PermissionLevel[permission_level.upper()]
                 session.commit()
                 return {"message": "Permission updated successfully"}, 200
-            
+
             # Create new permission
             permission = Permission(
                 resource_id=resource_id,
                 user_id=target_user_id,
-                permission_level=PermissionLevel[permission_level.upper()]
+                permission_level=PermissionLevel[permission_level.upper()],
             )
             session.add(permission)
             session.commit()
-            
+
             return {"message": "Permission granted successfully"}, 201
         except Exception as e:
             session.rollback()
@@ -902,25 +951,25 @@ class ResourceShare(Resource):
         session = Session()
         try:
             user_id = int(get_jwt_identity())
-            
-            resource = session.query(FileResource).filter_by(
-                id=resource_id, is_deleted=False
-            ).first()
-            
+
+            resource = (
+                session.query(FileResource)
+                .filter_by(id=resource_id, is_deleted=False)
+                .first()
+            )
+
             if not resource:
                 return {"message": "Resource not found"}, 404
-            
+
             # Only owner can view permissions
             if resource.owner_id != user_id:
                 return {"message": "Only owner can view permissions"}, 403
-            
-            permissions = session.query(Permission).filter_by(
-                resource_id=resource_id
-            ).all()
-            
-            return {
-                "permissions": [p.to_dict() for p in permissions]
-            }, 200
+
+            permissions = (
+                session.query(Permission).filter_by(resource_id=resource_id).all()
+            )
+
+            return {"permissions": [p.to_dict() for p in permissions]}, 200
         except Exception as e:
             return {"message": f"Error retrieving permissions: {str(e)}"}, 500
         finally:
@@ -961,31 +1010,35 @@ class ResourceUnshare(Resource):
         session = Session()
         try:
             current_user_id = int(get_jwt_identity())
-            
-            resource = session.query(FileResource).filter_by(
-                id=resource_id, is_deleted=False
-            ).first()
-            
+
+            resource = (
+                session.query(FileResource)
+                .filter_by(id=resource_id, is_deleted=False)
+                .first()
+            )
+
             if not resource:
                 return {"message": "Resource not found"}, 404
-            
+
             if resource.owner_id != current_user_id:
                 return {"message": "Only owner can remove permissions"}, 403
-            
-            permission = session.query(Permission).filter_by(
-                resource_id=resource_id, user_id=user_id
-            ).first()
-            
+
+            permission = (
+                session.query(Permission)
+                .filter_by(resource_id=resource_id, user_id=user_id)
+                .first()
+            )
+
             if not permission:
                 return {"message": "Permission not found"}, 404
-            
+
             # Cannot remove owner's permission
             if permission.permission_level == PermissionLevel.OWNER:
                 return {"message": "Cannot remove owner permission"}, 400
-            
+
             session.delete(permission)
             session.commit()
-            
+
             return {"message": "Permission removed successfully"}, 200
         except Exception as e:
             session.rollback()
@@ -1030,17 +1083,19 @@ class ResourceDetail(Resource):
         session = Session()
         try:
             user_id = int(get_jwt_identity())
-            
-            resource = session.query(FileResource).filter_by(
-                id=resource_id, is_deleted=False
-            ).first()
-            
+
+            resource = (
+                session.query(FileResource)
+                .filter_by(id=resource_id, is_deleted=False)
+                .first()
+            )
+
             if not resource:
                 return {"message": "Resource not found"}, 404
-            
+
             if not has_permission(session, resource_id, user_id, "viewer"):
                 return {"message": "No permission to access this resource"}, 403
-            
+
             return {"resource": resource.to_dict(include_permissions=True)}, 200
         except Exception as e:
             return {"message": f"Error retrieving resource: {str(e)}"}, 500
@@ -1069,40 +1124,53 @@ class ResourceDetail(Resource):
         try:
             user_id = int(get_jwt_identity())
             data = request.json
-            
-            resource = session.query(FileResource).filter_by(
-                id=resource_id, is_deleted=False
-            ).first()
-            
+
+            resource = (
+                session.query(FileResource)
+                .filter_by(id=resource_id, is_deleted=False)
+                .first()
+            )
+
             if not resource:
                 return {"message": "Resource not found"}, 404
-            
+
             if not has_permission(session, resource_id, user_id, "editor"):
                 return {"message": "No permission to edit this resource"}, 403
-            
+
             # Update name if provided
             if "name" in data:
                 resource.name = data["name"]
-            
+
             # Move to new parent if provided
             if "parent_id" in data:
                 new_parent_id = data["parent_id"]
                 if new_parent_id:
-                    new_parent = session.query(FileResource).filter_by(
-                        id=new_parent_id, resource_type=ResourceType.FOLDER, is_deleted=False
-                    ).first()
-                    
+                    new_parent = (
+                        session.query(FileResource)
+                        .filter_by(
+                            id=new_parent_id,
+                            resource_type=ResourceType.FOLDER,
+                            is_deleted=False,
+                        )
+                        .first()
+                    )
+
                     if not new_parent:
                         return {"message": "New parent folder not found"}, 404
-                    
+
                     if not has_permission(session, new_parent_id, user_id, "editor"):
-                        return {"message": "No permission to move to this location"}, 403
-                
+                        return {
+                            "message": "No permission to move to this location"
+                        }, 403
+
                 resource.parent_id = new_parent_id
-            
+
             session.commit()
-            
-            return {"message": "Resource updated successfully", "resource": resource.to_dict()}, 200
+
+            return {
+                "message": "Resource updated successfully",
+                "resource": resource.to_dict(),
+            }, 200
         except Exception as e:
             session.rollback()
             return {"message": f"Error updating resource: {str(e)}"}, 500
@@ -1130,22 +1198,24 @@ class ResourceDetail(Resource):
         session = Session()
         try:
             user_id = int(get_jwt_identity())
-            
-            resource = session.query(FileResource).filter_by(
-                id=resource_id, is_deleted=False
-            ).first()
-            
+
+            resource = (
+                session.query(FileResource)
+                .filter_by(id=resource_id, is_deleted=False)
+                .first()
+            )
+
             if not resource:
                 return {"message": "Resource not found"}, 404
-            
+
             # Only owner can delete
             if resource.owner_id != user_id:
                 return {"message": "Only owner can delete resources"}, 403
-            
+
             # Soft delete
             resource.is_deleted = True
             session.commit()
-            
+
             return {"message": "Resource deleted successfully"}, 200
         except Exception as e:
             session.rollback()
