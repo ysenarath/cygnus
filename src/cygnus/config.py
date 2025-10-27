@@ -85,6 +85,10 @@ class SecurityConfig:
     """
 
     secret_key: str
+    jwt_secret_key: str
+    jwt_access_token_expires: int
+    jwt_refresh_token_expires: int
+    jwt_algorithm: str
 
 
 @dataclass

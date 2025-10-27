@@ -1,10 +1,27 @@
-import React from "react";
+import React, { useState } from "react";
 import authService from "../services/authService";
 
 function Dashboard({ user, onLogout }) {
-  const handleLogout = () => {
-    authService.logout();
+  const [profileData, setProfileData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleLogout = async () => {
+    await authService.logout();
     onLogout();
+  };
+
+  const handleGetProfile = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const data = await authService.getProfile();
+      setProfileData(data.user);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -71,10 +88,43 @@ function Dashboard({ user, onLogout }) {
                 <h3 className="text-lg font-semibold text-gray-700 mb-2">
                   Dashboard
                 </h3>
-                <p className="text-gray-600">
+                <p className="text-gray-600 mb-4">
                   You have successfully logged in to the Cygnus Authentication
                   System.
                 </p>
+
+                {/* Test Protected Endpoint Button */}
+                <div className="mt-4">
+                  <button
+                    onClick={handleGetProfile}
+                    disabled={loading}
+                    className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-blue-300"
+                  >
+                    {loading
+                      ? "Loading..."
+                      : "Test Protected Endpoint (Get Profile)"}
+                  </button>
+                </div>
+
+                {/* Error Message */}
+                {error && (
+                  <div className="mt-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
+                    <p className="font-medium">Error:</p>
+                    <p>{error}</p>
+                  </div>
+                )}
+
+                {/* Profile Data from Protected Endpoint */}
+                {profileData && (
+                  <div className="mt-4 p-4 bg-green-100 border border-green-400 rounded">
+                    <h4 className="font-semibold text-green-800 mb-2">
+                      ✓ Protected Endpoint Response:
+                    </h4>
+                    <pre className="text-sm text-green-900 overflow-auto">
+                      {JSON.stringify(profileData, null, 2)}
+                    </pre>
+                  </div>
+                )}
               </div>
             </div>
           </div>

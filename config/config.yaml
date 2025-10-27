@@ -16,3 +16,7 @@ api:
 
 security:
   secret_key: your_secret_key_here
+  jwt_secret_key: your_jwt_secret_key_here_change_in_production
+  jwt_access_token_expires: 900  # 15 minutes in seconds
+  jwt_refresh_token_expires: 604800  # 7 days in seconds
+  jwt_algorithm: HS256
