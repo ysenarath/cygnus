@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import Login from "./components/Login";
 import Register from "./components/Register";
 import Dashboard from "./components/Dashboard";
+import { ThemeProvider } from "./context/ThemeContext";
 import authService from "./services/authService";
 
 function App() {
@@ -37,24 +38,24 @@ function App() {
     setCurrentView("login");
   };
 
-  if (currentUser) {
-    return <Dashboard user={currentUser} onLogout={handleLogout} />;
-  }
-
-  if (currentView === "register") {
-    return (
-      <Register
-        onRegisterSuccess={handleRegisterSuccess}
-        onSwitchToLogin={switchToLogin}
-      />
-    );
-  }
-
   return (
-    <Login
-      onLoginSuccess={handleLoginSuccess}
-      onSwitchToRegister={switchToRegister}
-    />
+    <ThemeProvider>
+      <div className="min-h-screen bg-light-bg dark:bg-dark-bg transition-colors duration-200">
+        {currentUser ? (
+          <Dashboard user={currentUser} onLogout={handleLogout} />
+        ) : currentView === "register" ? (
+          <Register
+            onRegisterSuccess={handleRegisterSuccess}
+            onSwitchToLogin={switchToLogin}
+          />
+        ) : (
+          <Login
+            onLoginSuccess={handleLoginSuccess}
+            onSwitchToRegister={switchToRegister}
+          />
+        )}
+      </div>
+    </ThemeProvider>
   );
 }
 

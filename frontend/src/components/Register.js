@@ -43,14 +43,14 @@ function Register({ onRegisterSuccess, onSwitchToLogin }) {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="bg-white p-8 rounded-lg shadow-md w-96">
-        <h2 className="text-2xl font-bold mb-6 text-center text-gray-800">
+    <div className="min-h-screen flex items-center justify-center bg-light-surface dark:bg-dark-bg">
+      <div className="bg-light-bg dark:bg-dark-surface p-8 rounded-lg shadow-md w-96 border border-light-border dark:border-dark-border">
+        <h2 className="text-2xl font-bold mb-6 text-center text-light-text dark:text-dark-text">
           Register
         </h2>
 
         {error && (
-          <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+          <div className="mb-4 p-3 bg-red-100 dark:bg-red-900 border border-red-400 dark:border-red-600 text-red-700 dark:text-red-200 rounded">
             {error}
           </div>
         )}
@@ -59,7 +59,7 @@ function Register({ onRegisterSuccess, onSwitchToLogin }) {
           <div className="mb-4">
             <label
               htmlFor="username"
-              className="block text-gray-700 font-medium mb-2"
+              className="block text-light-text dark:text-dark-text font-medium mb-2"
             >
               Username
             </label>
@@ -69,7 +69,7 @@ function Register({ onRegisterSuccess, onSwitchToLogin }) {
               name="username"
               value={formData.username}
               onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-light-border dark:border-dark-border rounded-md bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-light-primary dark:focus:ring-dark-primary"
               required
             />
           </div>
@@ -77,7 +77,7 @@ function Register({ onRegisterSuccess, onSwitchToLogin }) {
           <div className="mb-4">
             <label
               htmlFor="email"
-              className="block text-gray-700 font-medium mb-2"
+              className="block text-light-text dark:text-dark-text font-medium mb-2"
             >
               Email
             </label>
@@ -87,7 +87,7 @@ function Register({ onRegisterSuccess, onSwitchToLogin }) {
               name="email"
               value={formData.email}
               onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-light-border dark:border-dark-border rounded-md bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-light-primary dark:focus:ring-dark-primary"
               required
             />
           </div>
@@ -95,7 +95,7 @@ function Register({ onRegisterSuccess, onSwitchToLogin }) {
           <div className="mb-4">
             <label
               htmlFor="password"
-              className="block text-gray-700 font-medium mb-2"
+              className="block text-light-text dark:text-dark-text font-medium mb-2"
             >
               Password
             </label>
@@ -105,7 +105,7 @@ function Register({ onRegisterSuccess, onSwitchToLogin }) {
               name="password"
               value={formData.password}
               onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-light-border dark:border-dark-border rounded-md bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-light-primary dark:focus:ring-dark-primary"
               required
             />
           </div>
@@ -113,7 +113,7 @@ function Register({ onRegisterSuccess, onSwitchToLogin }) {
           <div className="mb-6">
             <label
               htmlFor="confirmPassword"
-              className="block text-gray-700 font-medium mb-2"
+              className="block text-light-text dark:text-dark-text font-medium mb-2"
             >
               Confirm Password
             </label>
@@ -123,7 +123,7 @@ function Register({ onRegisterSuccess, onSwitchToLogin }) {
               name="confirmPassword"
               value={formData.confirmPassword}
               onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-light-border dark:border-dark-border rounded-md bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text focus:outline-none focus:ring-2 focus:ring-light-primary dark:focus:ring-dark-primary"
               required
             />
           </div>
@@ -131,17 +131,17 @@ function Register({ onRegisterSuccess, onSwitchToLogin }) {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-blue-300"
+            className="w-full bg-light-primary dark:bg-dark-primary text-white py-2 px-4 rounded-md hover:bg-light-primary-hover dark:hover:bg-dark-primary-hover focus:outline-none focus:ring-2 focus:ring-light-primary dark:focus:ring-dark-primary disabled:opacity-50 transition-colors"
           >
             {loading ? "Registering..." : "Register"}
           </button>
         </form>
 
-        <p className="mt-4 text-center text-gray-600">
+        <p className="mt-4 text-center text-light-text-secondary dark:text-dark-text-secondary">
           Already have an account?{" "}
           <button
             onClick={onSwitchToLogin}
-            className="text-blue-500 hover:text-blue-600 font-medium"
+            className="text-light-primary dark:text-dark-primary hover:text-light-primary-hover dark:hover:text-dark-primary-hover font-medium transition-colors"
           >
             Login
           </button>

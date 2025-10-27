@@ -1,3 +1,31 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  /* Light theme (default) */
+  :root {
+    --bg-color: #ffffff;
+    --surface-color: #f8f9fa;
+    --text-color: #1a202c;
+    --text-secondary-color: #4a5568;
+    --border-color: #e2e8f0;
+    --primary-color: #3b82f6;
+    --primary-hover-color: #2563eb;
+  }
+
+  /* Dark theme */
+  .dark {
+    --bg-color: #1a202c;
+    --surface-color: #2d3748;
+    --text-color: #f7fafc;
+    --text-secondary-color: #cbd5e0;
+    --border-color: #4a5568;
+    --primary-color: #60a5fa;
+    --primary-hover-color: #3b82f6;
+  }
+
+  body {
+    @apply bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text transition-colors duration-200;
+  }
+}
