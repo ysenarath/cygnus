@@ -11,8 +11,10 @@ function App() {
 
   useEffect(() => {
     const user = authService.getCurrentUser();
-    if (user) {
+    if (user && authService.isAuthenticated()) {
       setCurrentUser(user);
+      // Reinitialize token refresh timer if user is already logged in
+      authService.scheduleTokenRefresh();
     }
   }, []);
 
@@ -25,7 +27,8 @@ function App() {
     setCurrentView("login");
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await authService.logout();
     setCurrentUser(null);
     setCurrentView("login");
   };

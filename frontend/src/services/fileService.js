@@ -5,20 +5,9 @@
  */
 
 import config from "../config/config";
+import authService from "./authService";
 
 const API_URL = config.backendUrl;
-
-/**
- * Get authentication headers with JWT token.
- * 
- * @returns {Object} Headers object with authorization token.
- */
-const getAuthHeaders = () => {
-  const token = sessionStorage.getItem('access_token');
-  return {
-    'Authorization': `Bearer ${token}`
-  };
-};
 
 /**
  * List nodes in a folder with pagination support.
@@ -36,9 +25,8 @@ export const listNodes = async (parentId = null, page = 1, pageSize = 50) => {
   params.append('page', page);
   params.append('page_size', pageSize);
 
-  const response = await fetch(`${API_URL}/api/files/list?${params}`, {
+  const response = await authService.authenticatedFetch(`${API_URL}/api/files/list?${params}`, {
     method: "GET",
-    headers: getAuthHeaders(),
   });
 
   return response.json();
@@ -52,12 +40,8 @@ export const listNodes = async (parentId = null, page = 1, pageSize = 50) => {
  * @returns {Promise<Object>} Response with created folder data.
  */
 export const createFolder = async (name, parentId = null) => {
-  const response = await fetch(`${API_URL}/api/files/folders`, {
+  const response = await authService.authenticatedFetch(`${API_URL}/api/files/folders`, {
     method: "POST",
-    headers: {
-      ...getAuthHeaders(),
-      "Content-Type": "application/json",
-    },
     body: JSON.stringify({ name, parent_id: parentId }),
   });
 
@@ -78,11 +62,29 @@ export const uploadFile = async (file, parentId = null) => {
     formData.append("parent_id", parentId);
   }
 
+  const token = authService.getAccessToken();
   const response = await fetch(`${API_URL}/api/files/upload`, {
     method: "POST",
-    headers: getAuthHeaders(),
+    headers: {
+      'Authorization': `Bearer ${token}`
+    },
     body: formData,
   });
+
+  // Handle token refresh if needed
+  if (response.status === 401) {
+    const newToken = await authService.refreshAccessToken();
+    if (newToken) {
+      const retryResponse = await fetch(`${API_URL}/api/files/upload`, {
+        method: "POST",
+        headers: {
+          'Authorization': `Bearer ${newToken}`
+        },
+        body: formData,
+      });
+      return retryResponse.json();
+    }
+  }
 
   return response.json();
 };
@@ -95,10 +97,26 @@ export const uploadFile = async (file, parentId = null) => {
  * @returns {Promise<void>}
  */
 export const downloadFile = async (nodeId, fileName) => {
-  const response = await fetch(`${API_URL}/api/files/download/${nodeId}`, {
+  let token = authService.getAccessToken();
+  let response = await fetch(`${API_URL}/api/files/download/${nodeId}`, {
     method: "GET",
-    headers: getAuthHeaders(),
+    headers: {
+      'Authorization': `Bearer ${token}`
+    },
   });
+
+  // Handle token refresh if needed
+  if (response.status === 401) {
+    const newToken = await authService.refreshAccessToken();
+    if (newToken) {
+      response = await fetch(`${API_URL}/api/files/download/${nodeId}`, {
+        method: "GET",
+        headers: {
+          'Authorization': `Bearer ${newToken}`
+        },
+      });
+    }
+  }
 
   if (response.ok) {
     const blob = await response.blob();
@@ -122,9 +140,8 @@ export const downloadFile = async (nodeId, fileName) => {
  * @returns {Promise<Object>} Response with node data.
  */
 export const getNode = async (nodeId) => {
-  const response = await fetch(`${API_URL}/api/files/${nodeId}`, {
+  const response = await authService.authenticatedFetch(`${API_URL}/api/files/${nodeId}`, {
     method: "GET",
-    headers: getAuthHeaders(),
   });
 
   return response.json();
@@ -138,12 +155,8 @@ export const getNode = async (nodeId) => {
  * @returns {Promise<Object>} Response with updated node data.
  */
 export const updateNode = async (nodeId, data) => {
-  const response = await fetch(`${API_URL}/api/files/${nodeId}`, {
+  const response = await authService.authenticatedFetch(`${API_URL}/api/files/${nodeId}`, {
     method: "PUT",
-    headers: {
-      ...getAuthHeaders(),
-      "Content-Type": "application/json",
-    },
     body: JSON.stringify(data),
   });
 
@@ -157,9 +170,8 @@ export const updateNode = async (nodeId, data) => {
  * @returns {Promise<Object>} Response with success message.
  */
 export const deleteNode = async (nodeId) => {
-  const response = await fetch(`${API_URL}/api/files/${nodeId}`, {
+  const response = await authService.authenticatedFetch(`${API_URL}/api/files/${nodeId}`, {
     method: "DELETE",
-    headers: getAuthHeaders(),
   });
 
   return response.json();
@@ -174,12 +186,8 @@ export const deleteNode = async (nodeId) => {
  * @returns {Promise<Object>} Response with success message.
  */
 export const shareNode = async (nodeId, userId, permissionLevel) => {
-  const response = await fetch(`${API_URL}/api/files/${nodeId}/share`, {
+  const response = await authService.authenticatedFetch(`${API_URL}/api/files/${nodeId}/share`, {
     method: "POST",
-    headers: {
-      ...getAuthHeaders(),
-      "Content-Type": "application/json",
-    },
     body: JSON.stringify({
       user_id: userId,
       permission_level: permissionLevel,
@@ -196,9 +204,8 @@ export const shareNode = async (nodeId, userId, permissionLevel) => {
  * @returns {Promise<Object>} Response with permissions list.
  */
 export const getPermissions = async (nodeId) => {
-  const response = await fetch(`${API_URL}/api/files/${nodeId}/share`, {
+  const response = await authService.authenticatedFetch(`${API_URL}/api/files/${nodeId}/share`, {
     method: "GET",
-    headers: getAuthHeaders(),
   });
 
   return response.json();
@@ -212,11 +219,10 @@ export const getPermissions = async (nodeId) => {
  * @returns {Promise<Object>} Response with success message.
  */
 export const removePermission = async (nodeId, userId) => {
-  const response = await fetch(
+  const response = await authService.authenticatedFetch(
     `${API_URL}/api/files/${nodeId}/share/${userId}`,
     {
       method: "DELETE",
-      headers: getAuthHeaders(),
     }
   );
 
