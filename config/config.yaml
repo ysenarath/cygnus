@@ -1,8 +1,8 @@
 app:
   name: Cygnus
   host: localhost
-  port: 8788
-  scheme: http
+  port: 3000
+  scheme: http://
 
 database:
   url: sqlite:///instance/database.db
@@ -12,7 +12,7 @@ api:
   host: localhost
   port: 8787
   debug: true
-  scheme: http
+  scheme: http://
 
 security:
   secret_key: your_secret_key_here

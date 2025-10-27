@@ -5,27 +5,25 @@ This module sets up the Flask app with Flask-RESTx and provides
 authentication endpoints.
 """
 
-from pathlib import Path
 from flask import Flask, request
 from flask_restx import Api, Resource, fields
 from flask_cors import CORS
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, scoped_session
-from omegaconf import OmegaConf
 
 from cygnus.models import Base, User
-
+from cygnus.config import load_config
 
 # Load configuration
-config_path = Path(__file__).parent.parent.parent / "config" / "config.yaml"
-config = OmegaConf.load(config_path)
+config = load_config()
 
 # Initialize Flask app
 app = Flask(__name__)
 app.config["SECRET_KEY"] = config.security.secret_key
 
 # Enable CORS for frontend communication
-frontend_url = f"{config.app.scheme}://{config.app.host}:{config.app.port}"
+frontend_url = f"{config.app.scheme}{config.app.host}:{config.app.port}"
+print("Frontend URL for CORS:", frontend_url)
 CORS(app, resources={r"/api/*": {"origins": frontend_url}})
 
 # Initialize Flask-RESTx
@@ -102,7 +100,6 @@ class Register(Resource):
         session = Session()
         try:
             data = request.json
-
             # Validate required fields
             if (
                 not data.get("username")
@@ -110,7 +107,6 @@ class Register(Resource):
                 or not data.get("password")
             ):
                 return {"message": "Username, email, and password are required"}, 400
-
             # Check if user already exists
             existing_user = (
                 session.query(User)
@@ -119,19 +115,14 @@ class Register(Resource):
                 )
                 .first()
             )
-
             if existing_user:
                 return {"message": "Username or email already exists"}, 400
-
             # Create new user
             user = User(username=data["username"], email=data["email"])
             user.set_password(data["password"])
-
             session.add(user)
             session.commit()
-
             return {"message": "User created successfully", "user": user.to_dict()}, 201
-
         except Exception as e:
             session.rollback()
             return {"message": f"Error creating user: {str(e)}"}, 500
@@ -167,19 +158,14 @@ class Login(Resource):
         session = Session()
         try:
             data = request.json
-
             # Validate required fields
             if not data.get("username") or not data.get("password"):
                 return {"message": "Username and password are required"}, 400
-
             # Find user
             user = session.query(User).filter_by(username=data["username"]).first()
-
             if not user or not user.check_password(data["password"]):
                 return {"message": "Invalid username or password"}, 401
-
             return {"message": "Login successful", "user": user.to_dict()}, 200
-
         except Exception as e:
             return {"message": f"Error during login: {str(e)}"}, 500
         finally:
