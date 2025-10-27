@@ -2,11 +2,13 @@ import React, { useState } from "react";
 import authService from "../services/authService";
 import profileService from "../services/profileService";
 import ThemeToggle from "./ThemeToggle";
+import FileManager from "./FileManager";
 
 function Dashboard({ user, onLogout }) {
   const [profileData, setProfileData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [currentView, setCurrentView] = useState("dashboard");
 
   const handleLogout = async () => {
     await authService.logout();
@@ -31,10 +33,32 @@ function Dashboard({ user, onLogout }) {
       <nav className="bg-light-bg dark:bg-dark-surface shadow-md border-b border-light-border dark:border-dark-border">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
-            <div className="flex items-center">
+            <div className="flex items-center space-x-8">
               <h1 className="text-xl font-bold text-light-text dark:text-dark-text">
-                Cygnus Dashboard
+                Cygnus
               </h1>
+              <div className="flex space-x-4">
+                <button
+                  onClick={() => setCurrentView("dashboard")}
+                  className={`px-3 py-2 rounded-md text-sm font-medium ${
+                    currentView === "dashboard"
+                      ? "bg-light-primary dark:bg-dark-primary text-white"
+                      : "text-light-text dark:text-dark-text hover:bg-light-surface dark:hover:bg-dark-bg"
+                  }`}
+                >
+                  Dashboard
+                </button>
+                <button
+                  onClick={() => setCurrentView("files")}
+                  className={`px-3 py-2 rounded-md text-sm font-medium ${
+                    currentView === "files"
+                      ? "bg-light-primary dark:bg-dark-primary text-white"
+                      : "text-light-text dark:text-dark-text hover:bg-light-surface dark:hover:bg-dark-bg"
+                  }`}
+                >
+                  File Manager
+                </button>
+              </div>
             </div>
             <div className="flex items-center space-x-4">
               {/* Profile Icon */}
@@ -73,8 +97,11 @@ function Dashboard({ user, onLogout }) {
       </nav>
 
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        <div className="px-4 py-6 sm:px-0">
-          <div className="bg-light-bg dark:bg-dark-surface rounded-lg shadow-md p-6 border border-light-border dark:border-dark-border">
+        {currentView === "files" ? (
+          <FileManager />
+        ) : (
+          <div className="px-4 py-6 sm:px-0">
+            <div className="bg-light-bg dark:bg-dark-surface rounded-lg shadow-md p-6 border border-light-border dark:border-dark-border">
             <h2 className="text-2xl font-bold mb-4 text-light-text dark:text-dark-text">
               Welcome, {user.username}!
             </h2>
@@ -154,7 +181,8 @@ function Dashboard({ user, onLogout }) {
               </div>
             </div>
           </div>
-        </div>
+          </div>
+        )}
       </main>
     </div>
   );
