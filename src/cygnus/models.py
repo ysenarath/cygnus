@@ -5,11 +5,13 @@ This module defines SQLAlchemy models for user authentication.
 """
 
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, DateTime
-from sqlalchemy.ext.declarative import declarative_base
-from werkzeug.security import generate_password_hash, check_password_hash
 
-Base = declarative_base()
+from sqlalchemy import Column, DateTime, Integer, String
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import DeclarativeBase
+from werkzeug.security import check_password_hash, generate_password_hash
+
+Base: DeclarativeBase = declarative_base()
 
 
 class User(Base):

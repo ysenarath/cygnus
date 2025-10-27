@@ -5,14 +5,61 @@ This module provides command-line interface for various Cygnus operations.
 """
 
 import json
+import shutil
+import subprocess
 from pathlib import Path
 
 import click
-import subprocess
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
 from cygnus.config import load_config
+from cygnus.models import Base, User
 
 here = Path(__file__).parent
+
+
+try:
+    config = load_config()
+except FileNotFoundError as e:
+    click.echo(f"Error: {e}", err=True)
+    raise click.Abort()
+except Exception as e:
+    click.echo(f"Error: Failed to load configuration: {e}", err=True)
+    raise click.Abort()
+
+
+def reset_all_tables():
+    engine = create_engine(config.database.url, echo=config.database.echo)
+    Base.metadata.drop_all(engine)
+    Base.metadata.create_all(engine)
+
+
+def delete_all_logs():
+    logs_dir = here.parent.parent / "instance" / "logs"
+    if logs_dir.exists() and logs_dir.is_dir():
+        shutil.rmtree(logs_dir)
+
+
+def add_admin_user_if_not_exist(password: str = "admin@123"):
+    engine = create_engine(config.database.url, echo=config.database.echo)
+    Session = sessionmaker(bind=engine)
+    with Session() as session:
+        admin_user = session.query(User).filter_by(username="admin").first()
+        if admin_user:
+            click.echo("Admin user already exists.")
+        else:
+            admin_user = User(username="admin", email="admin@example.com")
+            admin_user.set_password(password)
+            session.add(admin_user)
+            try:
+                session.commit()
+                click.echo(
+                    "Admin user created with username 'admin' and default password 'admin@123'. "
+                    "Please change the password after first login."
+                )
+            except Exception:
+                session.rollback()
 
 
 @click.group()
@@ -43,27 +90,14 @@ def setup():
     >>> cygnus generate-frontend-config
     Frontend config generated at frontend/src/config/config.js
     """
-    # Load the main configuration
-    try:
-        config = load_config()
-    except FileNotFoundError as e:
-        click.echo(f"Error: {e}", err=True)
-        raise click.Abort()
-    except Exception as e:
-        click.echo(f"Error: Failed to load configuration: {e}", err=True)
-        raise click.Abort()
-
-    # Extract frontend-relevant configuration
     frontend_config = {
         "appName": config.app.name,
         "backendUrl": f"{config.api.scheme}{config.api.host}:{config.api.port}",
         "frontendUrl": f"{config.app.scheme}{config.app.host}:{config.app.port}",
     }
-
     # Create frontend config directory if it doesn't exist
     frontend_config_dir = Path.cwd() / "frontend" / "src" / "config"
     frontend_config_dir.mkdir(parents=True, exist_ok=True)
-
     # Write the config as a JavaScript module
     config_file = frontend_config_dir / "config.js"
     with open(config_file, "w") as f:
@@ -72,8 +106,8 @@ def setup():
         f.write("const config = ")
         f.write(json.dumps(frontend_config, indent=2))
         f.write(";\n\nexport default config;\n")
-
     click.echo(f"Frontend config generated at {config_file}")
+    add_admin_user_if_not_exist()
 
 
 @cli.group()
@@ -124,7 +158,12 @@ setup_ = setup
     default=False,
     help="Generate frontend config before running services.",
 )
-def all(setup: bool):
+@click.option(
+    "--reset/--no-reset",
+    default=False,
+    help="Reset the instance directory before running services.",
+)
+def all(setup: bool, reset: bool = False):
     """
     Run both the Cygnus API server and frontend UI.
 
@@ -132,11 +171,17 @@ def all(setup: bool):
     ----------
     setup : bool
         If True, generate the frontend configuration before starting services.
+    reset : bool
+        If True, reset the instance directory before starting services.
 
     Notes
     -----
     Starts both the backend API server and the frontend UI concurrently.
     """
+    if reset:
+        click.echo("Resetting instance directory...")
+        reset_all_tables()
+        delete_all_logs()
     if setup:
         click.echo("Generating frontend configuration...")
         ctx = click.get_current_context()

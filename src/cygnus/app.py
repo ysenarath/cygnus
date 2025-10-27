@@ -90,6 +90,7 @@ engine = create_engine(config.database.url, echo=config.database.echo)
 Base.metadata.create_all(engine)
 Session = scoped_session(sessionmaker(bind=engine))
 
+
 # Define API models for documentation
 register_model = api.model(
     "Register",
