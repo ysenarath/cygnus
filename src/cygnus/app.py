@@ -26,10 +26,10 @@ from werkzeug.utils import secure_filename
 from cygnus.models import (
     Base,
     User,
-    Resource as FileResource,
+    Node,
     Permission,
     PermissionLevel,
-    ResourceType,
+    NodeType,
 )
 from cygnus.config import load_config
 
@@ -157,13 +157,13 @@ permission_model = api.model(
     },
 )
 
-resource_model = api.model(
-    "Resource",
+node_model = api.model(
+    "Node",
     {
-        "id": fields.Integer(description="Resource ID"),
-        "resource_id": fields.String(description="Unique resource identifier"),
-        "name": fields.String(description="Resource name"),
-        "type": fields.String(description="Resource type (file or folder)"),
+        "id": fields.Integer(description="Node ID"),
+        "node_id": fields.String(description="Unique node identifier"),
+        "name": fields.String(description="Node name"),
+        "type": fields.String(description="Node type (file or folder)"),
         "parent_id": fields.Integer(description="Parent folder ID"),
         "owner_id": fields.Integer(description="Owner user ID"),
         "owner": fields.String(description="Owner username"),
@@ -409,16 +409,16 @@ class Profile(Resource):
 
 
 # Helper functions for file management
-def get_user_permission(session, resource_id, user_id):
+def get_user_permission(session, node_id, user_id):
     """
-    Get user's permission level for a resource.
+    Get user's permission level for a node.
 
     Parameters
     ----------
     session : Session
         Database session.
-    resource_id : int
-        Resource ID.
+    node_id : int
+        Node ID.
     user_id : int
         User ID.
 
@@ -427,18 +427,18 @@ def get_user_permission(session, resource_id, user_id):
     str or None
         Permission level string or None if no permission.
     """
-    resource = session.query(FileResource).filter_by(id=resource_id).first()
-    if not resource:
+    node = session.query(Node).filter_by(id=node_id).first()
+    if not node:
         return None
 
     # Owner has full permissions
-    if resource.owner_id == user_id:
+    if node.owner_id == user_id:
         return "owner"
 
     # Check explicit permissions
     permission = (
         session.query(Permission)
-        .filter_by(resource_id=resource_id, user_id=user_id)
+        .filter_by(node_id=node_id, user_id=user_id)
         .first()
     )
 
@@ -448,7 +448,7 @@ def get_user_permission(session, resource_id, user_id):
     return None
 
 
-def has_permission(session, resource_id, user_id, required_level):
+def has_permission(session, node_id, user_id, required_level):
     """
     Check if user has required permission level.
 
@@ -456,8 +456,8 @@ def has_permission(session, resource_id, user_id, required_level):
     ----------
     session : Session
         Database session.
-    resource_id : int
-        Resource ID.
+    node_id : int
+        Node ID.
     user_id : int
         User ID.
     required_level : str
@@ -468,7 +468,7 @@ def has_permission(session, resource_id, user_id, required_level):
     bool
         True if user has required permission, False otherwise.
     """
-    user_level = get_user_permission(session, resource_id, user_id)
+    user_level = get_user_permission(session, node_id, user_id)
 
     if not user_level:
         return False
@@ -479,9 +479,9 @@ def has_permission(session, resource_id, user_id, required_level):
     return levels.get(user_level, 0) >= levels.get(required_level, 0)
 
 
-def get_accessible_resources(session, user_id, parent_id=None):
+def get_accessible_nodes(session, user_id, parent_id=None):
     """
-    Get all resources accessible to a user.
+    Get all nodes accessible to a user.
 
     Parameters
     ----------
@@ -495,37 +495,37 @@ def get_accessible_resources(session, user_id, parent_id=None):
     Returns
     -------
     list
-        List of accessible resources.
+        List of accessible nodes.
     """
-    # Get resources owned by user or shared with user
+    # Get nodes owned by user or shared with user
     owned = (
-        session.query(FileResource)
+        session.query(Node)
         .filter_by(owner_id=user_id, parent_id=parent_id, is_deleted=False)
         .all()
     )
 
-    # Get resources shared with user
+    # Get nodes shared with user
     shared_permissions = session.query(Permission).filter_by(user_id=user_id).all()
-    shared_resource_ids = [p.resource_id for p in shared_permissions]
+    shared_node_ids = [p.node_id for p in shared_permissions]
 
     shared = (
-        session.query(FileResource)
+        session.query(Node)
         .filter(
             and_(
-                FileResource.id.in_(shared_resource_ids),
-                FileResource.parent_id == parent_id,
-                FileResource.is_deleted == False,
+                Node.id.in_(shared_node_ids),
+                Node.parent_id == parent_id,
+                Node.is_deleted == False,
             )
         )
         .all()
-        if shared_resource_ids
+        if shared_node_ids
         else []
     )
 
     # Combine and deduplicate
-    all_resources = {r.id: r for r in owned + shared}
+    all_nodes = {r.id: r for r in owned + shared}
 
-    return list(all_resources.values())
+    return list(all_nodes.values())
 
 
 # File management endpoints
@@ -542,7 +542,7 @@ class FolderList(Resource):
 
     @jwt_required()
     @api.expect(folder_create_model)
-    @api.response(201, "Folder created successfully", resource_model)
+    @api.response(201, "Folder created successfully", node_model)
     @api.response(400, "Validation error")
     @api.response(404, "Parent folder not found")
     def post(self):
@@ -568,10 +568,10 @@ class FolderList(Resource):
             parent_id = data.get("parent_id")
             if parent_id:
                 parent = (
-                    session.query(FileResource)
+                    session.query(Node)
                     .filter_by(
                         id=parent_id,
-                        resource_type=ResourceType.FOLDER,
+                        node_type=NodeType.FOLDER,
                         is_deleted=False,
                     )
                     .first()
@@ -587,9 +587,9 @@ class FolderList(Resource):
                     }, 403
 
             # Create folder
-            folder = FileResource(
+            folder = Node(
                 name=data["name"],
-                resource_type=ResourceType.FOLDER,
+                node_type=NodeType.FOLDER,
                 parent_id=parent_id,
                 owner_id=user_id,
             )
@@ -599,7 +599,7 @@ class FolderList(Resource):
 
             # Create owner permission
             permission = Permission(
-                resource_id=folder.id,
+                node_id=folder.id,
                 user_id=user_id,
                 permission_level=PermissionLevel.OWNER,
             )
@@ -629,7 +629,7 @@ class FileUpload(Resource):
     """
 
     @jwt_required()
-    @api.response(201, "File uploaded successfully", resource_model)
+    @api.response(201, "File uploaded successfully", node_model)
     @api.response(400, "Validation error")
     def post(self):
         """
@@ -657,10 +657,10 @@ class FileUpload(Resource):
             if parent_id:
                 parent_id = int(parent_id)
                 parent = (
-                    session.query(FileResource)
+                    session.query(Node)
                     .filter_by(
                         id=parent_id,
-                        resource_type=ResourceType.FOLDER,
+                        node_type=NodeType.FOLDER,
                         is_deleted=False,
                     )
                     .first()
@@ -672,32 +672,32 @@ class FileUpload(Resource):
                 if not has_permission(session, parent_id, user_id, "editor"):
                     return {"message": "No permission to upload to this location"}, 403
 
-            # Create file resource
+            # Create file node
             filename = secure_filename(file.filename)
             mime_type = mimetypes.guess_type(filename)[0] or "application/octet-stream"
 
-            file_resource = FileResource(
+            file_node = Node(
                 name=filename,
-                resource_type=ResourceType.FILE,
+                node_type=NodeType.FILE,
                 parent_id=parent_id,
                 owner_id=user_id,
                 mime_type=mime_type,
                 file_size=0,  # Will update after saving
             )
 
-            session.add(file_resource)
+            session.add(file_node)
             session.flush()  # Get the ID before committing
 
-            # Save file to storage with resource_id as filename
-            file_path = os.path.join(STORAGE_DIR, file_resource.resource_id)
+            # Save file to storage with node_id as filename
+            file_path = os.path.join(STORAGE_DIR, file_node.node_id)
             file.save(file_path)
 
             # Update file size
-            file_resource.file_size = os.path.getsize(file_path)
+            file_node.file_size = os.path.getsize(file_path)
 
             # Create owner permission
             permission = Permission(
-                resource_id=file_resource.id,
+                node_id=file_node.id,
                 user_id=user_id,
                 permission_level=PermissionLevel.OWNER,
             )
@@ -706,7 +706,7 @@ class FileUpload(Resource):
 
             return {
                 "message": "File uploaded successfully",
-                "file": file_resource.to_dict(),
+                "file": file_node.to_dict(),
             }, 201
         except Exception as e:
             session.rollback()
@@ -716,26 +716,26 @@ class FileUpload(Resource):
 
 
 @files_ns.route("/list")
-class ResourceList(Resource):
+class NodeList(Resource):
     """
-    Resource listing endpoint.
+    Node listing endpoint.
 
     Methods
     -------
     get()
-        List resources in a folder.
+        List nodes in a folder.
     """
 
     @jwt_required()
-    @api.response(200, "Resources retrieved successfully")
+    @api.response(200, "Nodes retrieved successfully")
     def get(self):
         """
-        List resources accessible to the user.
+        List nodes accessible to the user.
 
         Returns
         -------
         dict
-            List of resources.
+            List of nodes.
         int
             HTTP status code.
         """
@@ -748,7 +748,7 @@ class ResourceList(Resource):
                 parent_id = int(parent_id)
                 # Verify parent exists and user has access
                 parent = (
-                    session.query(FileResource)
+                    session.query(Node)
                     .filter_by(id=parent_id, is_deleted=False)
                     .first()
                 )
@@ -759,19 +759,19 @@ class ResourceList(Resource):
                 if not has_permission(session, parent_id, user_id, "viewer"):
                     return {"message": "No permission to access this folder"}, 403
 
-            resources = get_accessible_resources(session, user_id, parent_id)
+            nodes = get_accessible_nodes(session, user_id, parent_id)
 
             return {
-                "resources": [r.to_dict() for r in resources],
-                "count": len(resources),
+                "nodes": [r.to_dict() for r in nodes],
+                "count": len(nodes),
             }, 200
         except Exception as e:
-            return {"message": f"Error listing resources: {str(e)}"}, 500
+            return {"message": f"Error listing nodes: {str(e)}"}, 500
         finally:
             session.close()
 
 
-@files_ns.route("/download/<int:resource_id>")
+@files_ns.route("/download/<int:node_id>")
 class FileDownload(Resource):
     """
     File download endpoint.
@@ -785,14 +785,14 @@ class FileDownload(Resource):
     @jwt_required()
     @api.response(200, "File downloaded successfully")
     @api.response(404, "File not found")
-    def get(self, resource_id):
+    def get(self, node_id):
         """
         Download a file.
 
         Parameters
         ----------
-        resource_id : int
-            Resource ID.
+        node_id : int
+            Node ID.
 
         Returns
         -------
@@ -803,21 +803,21 @@ class FileDownload(Resource):
         try:
             user_id = int(get_jwt_identity())
 
-            resource = (
-                session.query(FileResource)
+            node = (
+                session.query(Node)
                 .filter_by(
-                    id=resource_id, resource_type=ResourceType.FILE, is_deleted=False
+                    id=node_id, node_type=NodeType.FILE, is_deleted=False
                 )
                 .first()
             )
 
-            if not resource:
+            if not node:
                 return {"message": "File not found"}, 404
 
-            if not has_permission(session, resource_id, user_id, "viewer"):
+            if not has_permission(session, node_id, user_id, "viewer"):
                 return {"message": "No permission to access this file"}, 403
 
-            file_path = os.path.join(STORAGE_DIR, resource.resource_id)
+            file_path = os.path.join(STORAGE_DIR, node.node_id)
 
             if not os.path.exists(file_path):
                 return {"message": "File not found on disk"}, 404
@@ -825,8 +825,8 @@ class FileDownload(Resource):
             return send_file(
                 file_path,
                 as_attachment=True,
-                download_name=resource.name,
-                mimetype=resource.mime_type,
+                download_name=node.name,
+                mimetype=node.mime_type,
             )
         except Exception as e:
             return {"message": f"Error downloading file: {str(e)}"}, 500
@@ -834,17 +834,17 @@ class FileDownload(Resource):
             session.close()
 
 
-@files_ns.route("/<int:resource_id>/share")
-class ResourceShare(Resource):
+@files_ns.route("/<int:node_id>/share")
+class NodeShare(Resource):
     """
-    Resource sharing endpoint.
+    Node sharing endpoint.
 
     Methods
     -------
     post()
-        Share a resource with another user.
+        Share a node with another user.
     get()
-        Get permissions for a resource.
+        Get permissions for a node.
     delete()
         Remove a user's permission.
     """
@@ -852,14 +852,14 @@ class ResourceShare(Resource):
     @jwt_required()
     @api.expect(permission_model)
     @api.response(201, "Permission granted successfully")
-    def post(self, resource_id):
+    def post(self, node_id):
         """
-        Share a resource with another user.
+        Share a node with another user.
 
         Parameters
         ----------
-        resource_id : int
-            Resource ID.
+        node_id : int
+            Node ID.
 
         Returns
         -------
@@ -874,17 +874,17 @@ class ResourceShare(Resource):
             data = request.json
 
             # Check if user is owner
-            resource = (
-                session.query(FileResource)
-                .filter_by(id=resource_id, is_deleted=False)
+            node = (
+                session.query(Node)
+                .filter_by(id=node_id, is_deleted=False)
                 .first()
             )
 
-            if not resource:
-                return {"message": "Resource not found"}, 404
+            if not node:
+                return {"message": "Node not found"}, 404
 
-            if resource.owner_id != user_id:
-                return {"message": "Only owner can share resources"}, 403
+            if node.owner_id != user_id:
+                return {"message": "Only owner can share nodes"}, 403
 
             # Validate target user exists
             target_user_id = data.get("user_id")
@@ -904,7 +904,7 @@ class ResourceShare(Resource):
             # Check if permission already exists
             existing = (
                 session.query(Permission)
-                .filter_by(resource_id=resource_id, user_id=target_user_id)
+                .filter_by(node_id=node_id, user_id=target_user_id)
                 .first()
             )
 
@@ -916,7 +916,7 @@ class ResourceShare(Resource):
 
             # Create new permission
             permission = Permission(
-                resource_id=resource_id,
+                node_id=node_id,
                 user_id=target_user_id,
                 permission_level=PermissionLevel[permission_level.upper()],
             )
@@ -926,20 +926,20 @@ class ResourceShare(Resource):
             return {"message": "Permission granted successfully"}, 201
         except Exception as e:
             session.rollback()
-            return {"message": f"Error sharing resource: {str(e)}"}, 500
+            return {"message": f"Error sharing node: {str(e)}"}, 500
         finally:
             session.close()
 
     @jwt_required()
     @api.response(200, "Permissions retrieved successfully")
-    def get(self, resource_id):
+    def get(self, node_id):
         """
-        Get permissions for a resource.
+        Get permissions for a node.
 
         Parameters
         ----------
-        resource_id : int
-            Resource ID.
+        node_id : int
+            Node ID.
 
         Returns
         -------
@@ -952,21 +952,21 @@ class ResourceShare(Resource):
         try:
             user_id = int(get_jwt_identity())
 
-            resource = (
-                session.query(FileResource)
-                .filter_by(id=resource_id, is_deleted=False)
+            node = (
+                session.query(Node)
+                .filter_by(id=node_id, is_deleted=False)
                 .first()
             )
 
-            if not resource:
-                return {"message": "Resource not found"}, 404
+            if not node:
+                return {"message": "Node not found"}, 404
 
             # Only owner can view permissions
-            if resource.owner_id != user_id:
+            if node.owner_id != user_id:
                 return {"message": "Only owner can view permissions"}, 403
 
             permissions = (
-                session.query(Permission).filter_by(resource_id=resource_id).all()
+                session.query(Permission).filter_by(node_id=node_id).all()
             )
 
             return {"permissions": [p.to_dict() for p in permissions]}, 200
@@ -976,27 +976,27 @@ class ResourceShare(Resource):
             session.close()
 
 
-@files_ns.route("/<int:resource_id>/share/<int:user_id>")
-class ResourceUnshare(Resource):
+@files_ns.route("/<int:node_id>/share/<int:user_id>")
+class NodeUnshare(Resource):
     """
     Remove sharing permission endpoint.
 
     Methods
     -------
     delete()
-        Remove a user's permission to a resource.
+        Remove a user's permission to a node.
     """
 
     @jwt_required()
     @api.response(200, "Permission removed successfully")
-    def delete(self, resource_id, user_id):
+    def delete(self, node_id, user_id):
         """
         Remove a user's permission.
 
         Parameters
         ----------
-        resource_id : int
-            Resource ID.
+        node_id : int
+            Node ID.
         user_id : int
             User ID to remove permission from.
 
@@ -1011,21 +1011,21 @@ class ResourceUnshare(Resource):
         try:
             current_user_id = int(get_jwt_identity())
 
-            resource = (
-                session.query(FileResource)
-                .filter_by(id=resource_id, is_deleted=False)
+            node = (
+                session.query(Node)
+                .filter_by(id=node_id, is_deleted=False)
                 .first()
             )
 
-            if not resource:
-                return {"message": "Resource not found"}, 404
+            if not node:
+                return {"message": "Node not found"}, 404
 
-            if resource.owner_id != current_user_id:
+            if node.owner_id != current_user_id:
                 return {"message": "Only owner can remove permissions"}, 403
 
             permission = (
                 session.query(Permission)
-                .filter_by(resource_id=resource_id, user_id=user_id)
+                .filter_by(node_id=node_id, user_id=user_id)
                 .first()
             )
 
@@ -1047,36 +1047,36 @@ class ResourceUnshare(Resource):
             session.close()
 
 
-@files_ns.route("/<int:resource_id>")
-class ResourceDetail(Resource):
+@files_ns.route("/<int:node_id>")
+class NodeDetail(Resource):
     """
-    Resource detail endpoint.
+    Node detail endpoint.
 
     Methods
     -------
     get()
-        Get resource details.
+        Get node details.
     put()
-        Update resource (rename/move).
+        Update node (rename/move).
     delete()
-        Delete a resource.
+        Delete a node.
     """
 
     @jwt_required()
-    @api.response(200, "Resource retrieved successfully", resource_model)
-    def get(self, resource_id):
+    @api.response(200, "Node retrieved successfully", node_model)
+    def get(self, node_id):
         """
-        Get resource details.
+        Get node details.
 
         Parameters
         ----------
-        resource_id : int
-            Resource ID.
+        node_id : int
+            Node ID.
 
         Returns
         -------
         dict
-            Resource data.
+            Node data.
         int
             HTTP status code.
         """
@@ -1084,39 +1084,39 @@ class ResourceDetail(Resource):
         try:
             user_id = int(get_jwt_identity())
 
-            resource = (
-                session.query(FileResource)
-                .filter_by(id=resource_id, is_deleted=False)
+            node = (
+                session.query(Node)
+                .filter_by(id=node_id, is_deleted=False)
                 .first()
             )
 
-            if not resource:
-                return {"message": "Resource not found"}, 404
+            if not node:
+                return {"message": "Node not found"}, 404
 
-            if not has_permission(session, resource_id, user_id, "viewer"):
-                return {"message": "No permission to access this resource"}, 403
+            if not has_permission(session, node_id, user_id, "viewer"):
+                return {"message": "No permission to access this node"}, 403
 
-            return {"resource": resource.to_dict(include_permissions=True)}, 200
+            return {"node": node.to_dict(include_permissions=True)}, 200
         except Exception as e:
-            return {"message": f"Error retrieving resource: {str(e)}"}, 500
+            return {"message": f"Error retrieving node: {str(e)}"}, 500
         finally:
             session.close()
 
     @jwt_required()
-    @api.response(200, "Resource updated successfully")
-    def put(self, resource_id):
+    @api.response(200, "Node updated successfully")
+    def put(self, node_id):
         """
-        Update resource (rename/move).
+        Update node (rename/move).
 
         Parameters
         ----------
-        resource_id : int
-            Resource ID.
+        node_id : int
+            Node ID.
 
         Returns
         -------
         dict
-            Updated resource data.
+            Updated node data.
         int
             HTTP status code.
         """
@@ -1125,31 +1125,31 @@ class ResourceDetail(Resource):
             user_id = int(get_jwt_identity())
             data = request.json
 
-            resource = (
-                session.query(FileResource)
-                .filter_by(id=resource_id, is_deleted=False)
+            node = (
+                session.query(Node)
+                .filter_by(id=node_id, is_deleted=False)
                 .first()
             )
 
-            if not resource:
-                return {"message": "Resource not found"}, 404
+            if not node:
+                return {"message": "Node not found"}, 404
 
-            if not has_permission(session, resource_id, user_id, "editor"):
-                return {"message": "No permission to edit this resource"}, 403
+            if not has_permission(session, node_id, user_id, "editor"):
+                return {"message": "No permission to edit this node"}, 403
 
             # Update name if provided
             if "name" in data:
-                resource.name = data["name"]
+                node.name = data["name"]
 
             # Move to new parent if provided
             if "parent_id" in data:
                 new_parent_id = data["parent_id"]
                 if new_parent_id:
                     new_parent = (
-                        session.query(FileResource)
+                        session.query(Node)
                         .filter_by(
                             id=new_parent_id,
-                            resource_type=ResourceType.FOLDER,
+                            node_type=NodeType.FOLDER,
                             is_deleted=False,
                         )
                         .first()
@@ -1163,30 +1163,30 @@ class ResourceDetail(Resource):
                             "message": "No permission to move to this location"
                         }, 403
 
-                resource.parent_id = new_parent_id
+                node.parent_id = new_parent_id
 
             session.commit()
 
             return {
-                "message": "Resource updated successfully",
-                "resource": resource.to_dict(),
+                "message": "Node updated successfully",
+                "node": node.to_dict(),
             }, 200
         except Exception as e:
             session.rollback()
-            return {"message": f"Error updating resource: {str(e)}"}, 500
+            return {"message": f"Error updating node: {str(e)}"}, 500
         finally:
             session.close()
 
     @jwt_required()
-    @api.response(200, "Resource deleted successfully")
-    def delete(self, resource_id):
+    @api.response(200, "Node deleted successfully")
+    def delete(self, node_id):
         """
-        Delete a resource (soft delete).
+        Delete a node (soft delete).
 
         Parameters
         ----------
-        resource_id : int
-            Resource ID.
+        node_id : int
+            Node ID.
 
         Returns
         -------
@@ -1199,27 +1199,27 @@ class ResourceDetail(Resource):
         try:
             user_id = int(get_jwt_identity())
 
-            resource = (
-                session.query(FileResource)
-                .filter_by(id=resource_id, is_deleted=False)
+            node = (
+                session.query(Node)
+                .filter_by(id=node_id, is_deleted=False)
                 .first()
             )
 
-            if not resource:
-                return {"message": "Resource not found"}, 404
+            if not node:
+                return {"message": "Node not found"}, 404
 
             # Only owner can delete
-            if resource.owner_id != user_id:
-                return {"message": "Only owner can delete resources"}, 403
+            if node.owner_id != user_id:
+                return {"message": "Only owner can delete nodes"}, 403
 
             # Soft delete
-            resource.is_deleted = True
+            node.is_deleted = True
             session.commit()
 
-            return {"message": "Resource deleted successfully"}, 200
+            return {"message": "Node deleted successfully"}, 200
         except Exception as e:
             session.rollback()
-            return {"message": f"Error deleting resource: {str(e)}"}, 500
+            return {"message": f"Error deleting node: {str(e)}"}, 500
         finally:
             session.close()
 

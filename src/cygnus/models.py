@@ -34,16 +34,16 @@ class PermissionLevel(PyEnum):
     VIEWER = "viewer"
 
 
-class ResourceType(PyEnum):
+class NodeType(PyEnum):
     """
-    Enumeration for resource types.
+    Enumeration for node types.
     
     Attributes
     ----------
     FILE : str
-        A file resource.
+        A file node.
     FOLDER : str
-        A folder resource.
+        A folder node.
     """
     FILE = "file"
     FOLDER = "folder"
@@ -132,24 +132,24 @@ class User(Base):
         }
 
 
-class Resource(Base):
+class Node(Base):
     """
-    Resource model for files and folders.
+    Node model for files and folders in the file system.
 
     Attributes
     ----------
     id : int
-        Primary key for the resource.
-    resource_id : str
-        Unique identifier for the resource (UUID).
+        Primary key for the node.
+    node_id : str
+        Unique identifier for the node (UUID).
     name : str
         Name of the file or folder.
-    resource_type : ResourceType
-        Type of resource (file or folder).
+    node_type : NodeType
+        Type of node (file or folder).
     parent_id : int
         ID of the parent folder (NULL for root items).
     owner_id : int
-        ID of the user who owns the resource.
+        ID of the user who owns the node.
     file_size : int
         Size of the file in bytes (NULL for folders).
     mime_type : str
@@ -157,18 +157,18 @@ class Resource(Base):
     is_deleted : bool
         Soft delete flag.
     created_at : datetime
-        Timestamp when the resource was created.
+        Timestamp when the node was created.
     updated_at : datetime
-        Timestamp when the resource was last updated.
+        Timestamp when the node was last updated.
     """
 
-    __tablename__ = "resources"
+    __tablename__ = "nodes"
 
     id = Column(Integer, primary_key=True)
-    resource_id = Column(String(36), unique=True, nullable=False, default=lambda: str(uuid.uuid4()))
+    node_id = Column(String(36), unique=True, nullable=False, default=lambda: str(uuid.uuid4()))
     name = Column(String(255), nullable=False)
-    resource_type = Column(Enum(ResourceType), nullable=False)
-    parent_id = Column(Integer, ForeignKey("resources.id"), nullable=True)
+    node_type = Column(Enum(NodeType), nullable=False)
+    parent_id = Column(Integer, ForeignKey("nodes.id"), nullable=True)
     owner_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     file_size = Column(BigInteger, nullable=True)
     mime_type = Column(String(100), nullable=True)
@@ -177,13 +177,13 @@ class Resource(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
-    owner = relationship("User", backref="owned_resources")
-    parent = relationship("Resource", remote_side=[id], backref="children")
-    permissions = relationship("Permission", back_populates="resource", cascade="all, delete-orphan")
+    owner = relationship("User", backref="owned_nodes")
+    parent = relationship("Node", remote_side=[id], backref="children")
+    permissions = relationship("Permission", back_populates="node", cascade="all, delete-orphan")
 
     def to_dict(self, include_permissions=False):
         """
-        Convert the resource object to a dictionary.
+        Convert the node object to a dictionary.
 
         Parameters
         ----------
@@ -193,13 +193,13 @@ class Resource(Base):
         Returns
         -------
         dict
-            A dictionary representation of the resource.
+            A dictionary representation of the node.
         """
         result = {
             "id": self.id,
-            "resource_id": self.resource_id,
+            "node_id": self.node_id,
             "name": self.name,
-            "type": self.resource_type.value,
+            "type": self.node_type.value,
             "parent_id": self.parent_id,
             "owner_id": self.owner_id,
             "owner": self.owner.username if self.owner else None,
@@ -218,14 +218,14 @@ class Resource(Base):
 
 class Permission(Base):
     """
-    Permission model for resource access control.
+    Permission model for node access control.
 
     Attributes
     ----------
     id : int
         Primary key for the permission.
-    resource_id : int
-        ID of the resource.
+    node_id : int
+        ID of the node.
     user_id : int
         ID of the user who has permission.
     permission_level : PermissionLevel
@@ -237,13 +237,13 @@ class Permission(Base):
     __tablename__ = "permissions"
 
     id = Column(Integer, primary_key=True)
-    resource_id = Column(Integer, ForeignKey("resources.id"), nullable=False)
+    node_id = Column(Integer, ForeignKey("nodes.id"), nullable=False)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     permission_level = Column(Enum(PermissionLevel), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # Relationships
-    resource = relationship("Resource", back_populates="permissions")
+    node = relationship("Node", back_populates="permissions")
     user = relationship("User", backref="permissions")
 
     def to_dict(self):
@@ -257,7 +257,7 @@ class Permission(Base):
         """
         return {
             "id": self.id,
-            "resource_id": self.resource_id,
+            "node_id": self.node_id,
             "user_id": self.user_id,
             "username": self.user.username if self.user else None,
             "permission_level": self.permission_level.value,

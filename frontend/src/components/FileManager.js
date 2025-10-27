@@ -1,20 +1,20 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  listResources,
+  listNodes,
   createFolder,
   uploadFile,
   downloadFile,
-  deleteResource,
-  shareResource,
+  deleteNode,
+  shareNode,
   getPermissions,
   removePermission,
-  updateResource
+  updateNode
 } from '../services/fileService';
 import authService from '../services/authService';
 import ThemeToggle from './ThemeToggle';
 
 const FileManager = ({ user, onLogout }) => {
-  const [resources, setResources] = useState([]);
+  const [nodes, setNodes] = useState([]);
   const [currentFolder, setCurrentFolder] = useState(null);
   const [path, setPath] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -23,7 +23,7 @@ const FileManager = ({ user, onLogout }) => {
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [showPermissions, setShowPermissions] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
-  const [selectedResource, setSelectedResource] = useState(null);
+  const [selectedNode, setSelectedNode] = useState(null);
   const [shareUserId, setShareUserId] = useState('');
   const [sharePermission, setSharePermission] = useState('viewer');
   const [permissions, setPermissions] = useState([]);
@@ -32,18 +32,18 @@ const FileManager = ({ user, onLogout }) => {
   const [viewMode, setViewMode] = useState('list');
   const fileInputRef = useRef(null);
 
-  const loadResources = useCallback(async () => {
+  const loadNodes = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await listResources(currentFolder);
-      if (response.resources) {
-        setResources(response.resources);
+      const response = await listNodes(currentFolder);
+      if (response.nodes) {
+        setNodes(response.nodes);
       } else if (response.message) {
         setError(response.message);
       }
     } catch (err) {
-      setError('Failed to load resources');
+      setError('Failed to load nodes');
       console.error(err);
     } finally {
       setLoading(false);
@@ -51,8 +51,8 @@ const FileManager = ({ user, onLogout }) => {
   }, [currentFolder]);
 
   useEffect(() => {
-    loadResources();
-  }, [loadResources]);
+    loadNodes();
+  }, [loadNodes]);
 
   const navigateToFolder = (folder) => {
     setCurrentFolder(folder.id);
@@ -81,7 +81,7 @@ const FileManager = ({ user, onLogout }) => {
       if (response.folder) {
         setShowCreateFolder(false);
         setNewFolderName('');
-        loadResources();
+        loadNodes();
       } else if (response.message) {
         setError(response.message);
       }
@@ -99,7 +99,7 @@ const FileManager = ({ user, onLogout }) => {
     try {
       const response = await uploadFile(file, currentFolder);
       if (response.file) {
-        loadResources();
+        loadNodes();
       } else if (response.message) {
         setError(response.message);
       }
@@ -112,35 +112,35 @@ const FileManager = ({ user, onLogout }) => {
     }
   };
 
-  const handleDownload = async (resource) => {
+  const handleDownload = async (node) => {
     try {
-      await downloadFile(resource.id, resource.name);
+      await downloadFile(node.id, node.name);
     } catch (err) {
       setError('Failed to download file');
       console.error(err);
     }
   };
 
-  const handleDelete = async (resource) => {
-    if (!window.confirm(`Are you sure you want to delete "${resource.name}"?`)) {
+  const handleDelete = async (node) => {
+    if (!window.confirm(`Are you sure you want to delete "${node.name}"?`)) {
       return;
     }
 
     try {
-      const response = await deleteResource(resource.id);
+      const response = await deleteNode(node.id);
       if (response.message && !response.message.includes('Error')) {
-        loadResources();
+        loadNodes();
       } else {
-        setError(response.message || 'Failed to delete resource');
+        setError(response.message || 'Failed to delete node');
       }
     } catch (err) {
-      setError('Failed to delete resource');
+      setError('Failed to delete node');
       console.error(err);
     }
   };
 
-  const openShareDialog = (resource) => {
-    setSelectedResource(resource);
+  const openShareDialog = (node) => {
+    setSelectedNode(node);
     setShowShareDialog(true);
     setShareUserId('');
     setSharePermission('viewer');
@@ -153,8 +153,8 @@ const FileManager = ({ user, onLogout }) => {
     }
 
     try {
-      const response = await shareResource(
-        selectedResource.id,
+      const response = await shareNode(
+        selectedNode.id,
         parseInt(shareUserId),
         sharePermission
       );
@@ -163,19 +163,19 @@ const FileManager = ({ user, onLogout }) => {
         setError(null);
         alert(response.message);
       } else {
-        setError(response.message || 'Failed to share resource');
+        setError(response.message || 'Failed to share node');
       }
     } catch (err) {
-      setError('Failed to share resource');
+      setError('Failed to share node');
       console.error(err);
     }
   };
 
-  const openPermissions = async (resource) => {
-    setSelectedResource(resource);
+  const openPermissions = async (node) => {
+    setSelectedNode(node);
     setShowPermissions(true);
     try {
-      const response = await getPermissions(resource.id);
+      const response = await getPermissions(node.id);
       if (response.permissions) {
         setPermissions(response.permissions);
       } else {
@@ -189,9 +189,9 @@ const FileManager = ({ user, onLogout }) => {
 
   const handleRemovePermission = async (userId) => {
     try {
-      const response = await removePermission(selectedResource.id, userId);
+      const response = await removePermission(selectedNode.id, userId);
       if (response.message && !response.message.includes('Error')) {
-        openPermissions(selectedResource);
+        openPermissions(selectedNode);
       } else {
         setError(response.message || 'Failed to remove permission');
       }
@@ -201,9 +201,9 @@ const FileManager = ({ user, onLogout }) => {
     }
   };
 
-  const openRenameDialog = (resource) => {
-    setSelectedResource(resource);
-    setNewName(resource.name);
+  const openRenameDialog = (node) => {
+    setSelectedNode(node);
+    setNewName(node.name);
     setShowRenameDialog(true);
   };
 
@@ -214,15 +214,15 @@ const FileManager = ({ user, onLogout }) => {
     }
 
     try {
-      const response = await updateResource(selectedResource.id, { name: newName });
-      if (response.resource) {
+      const response = await updateNode(selectedNode.id, { name: newName });
+      if (response.node) {
         setShowRenameDialog(false);
-        loadResources();
+        loadNodes();
       } else {
-        setError(response.message || 'Failed to rename resource');
+        setError(response.message || 'Failed to rename node');
       }
     } catch (err) {
-      setError('Failed to rename resource');
+      setError('Failed to rename node');
       console.error(err);
     }
   };
@@ -244,8 +244,8 @@ const FileManager = ({ user, onLogout }) => {
     return `${size.toFixed(2)} ${units[unitIndex]}`;
   };
 
-  const getFileIcon = (resource) => {
-    if (resource.type === 'folder') {
+  const getFileIcon = (node) => {
+    if (node.type === 'folder') {
       return (
         <svg className="w-8 h-8 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
           <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
@@ -359,7 +359,7 @@ const FileManager = ({ user, onLogout }) => {
               <span>Upload</span>
             </button>
             <input ref={fileInputRef} type="file" onChange={handleFileUpload} className="hidden" />
-            <button onClick={loadResources} className="p-1.5 text-light-text-secondary dark:text-dark-text-secondary hover:bg-light-bg dark:hover:bg-dark-bg rounded-lg transition-colors">
+            <button onClick={loadNodes} className="p-1.5 text-light-text-secondary dark:text-dark-text-secondary hover:bg-light-bg dark:hover:bg-dark-bg rounded-lg transition-colors">
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
               </svg>
@@ -395,22 +395,22 @@ const FileManager = ({ user, onLogout }) => {
               </div>
             ) : viewMode === 'grid' ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-                {resources.map((resource) => (
+                {nodes.map((node) => (
                   <div
-                    key={resource.id}
+                    key={node.id}
                     className="group relative p-3 rounded-lg hover:bg-light-surface dark:hover:bg-dark-surface border border-transparent hover:border-light-border dark:hover:border-dark-border transition-all cursor-pointer"
-                    onDoubleClick={() => resource.type === 'folder' && navigateToFolder(resource)}
+                    onDoubleClick={() => node.type === 'folder' && navigateToFolder(node)}
                   >
                     <div className="flex flex-col items-center">
-                      {getFileIcon(resource)}
-                      <p className="mt-2 text-sm text-center text-light-text dark:text-dark-text truncate w-full">{resource.name}</p>
+                      {getFileIcon(node)}
+                      <p className="mt-2 text-sm text-center text-light-text dark:text-dark-text truncate w-full">{node.name}</p>
                       <p className="text-xs text-light-text-secondary dark:text-dark-text-secondary">
-                        {resource.type === 'file' ? formatFileSize(resource.file_size) : 'Folder'}
+                        {node.type === 'file' ? formatFileSize(node.file_size) : 'Folder'}
                       </p>
                     </div>
                   </div>
                 ))}
-                {resources.length === 0 && (
+                {nodes.length === 0 && (
                   <div className="col-span-full flex flex-col items-center justify-center py-16 text-light-text-secondary dark:text-dark-text-secondary">
                     <svg className="w-16 h-16 mb-4" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M2 6a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1H8a3 3 0 00-3 3v1.5a1.5 1.5 0 01-3 0V6z" clipRule="evenodd" />
@@ -434,16 +434,16 @@ const FileManager = ({ user, onLogout }) => {
                     </tr>
                   </thead>
                   <tbody>
-                    {resources.map((resource) => (
+                    {nodes.map((node) => (
                       <tr
-                        key={resource.id}
+                        key={node.id}
                         className="border-b border-light-border dark:border-dark-border hover:bg-light-bg dark:hover:bg-dark-bg cursor-pointer"
-                        onDoubleClick={() => resource.type === 'folder' && navigateToFolder(resource)}
+                        onDoubleClick={() => node.type === 'folder' && navigateToFolder(node)}
                       >
                         <td className="px-4 py-3">
                           <div className="flex items-center space-x-3">
                             <div className="flex-shrink-0">
-                              {resource.type === 'folder' ? (
+                              {node.type === 'folder' ? (
                                 <svg className="w-6 h-6 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
                                   <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
                                 </svg>
@@ -453,30 +453,30 @@ const FileManager = ({ user, onLogout }) => {
                                 </svg>
                               )}
                             </div>
-                            <span className="text-sm text-light-text dark:text-dark-text">{resource.name}</span>
+                            <span className="text-sm text-light-text dark:text-dark-text">{node.name}</span>
                           </div>
                         </td>
-                        <td className="px-4 py-3 text-sm text-light-text dark:text-dark-text">{resource.owner}</td>
+                        <td className="px-4 py-3 text-sm text-light-text dark:text-dark-text">{node.owner}</td>
                         <td className="px-4 py-3 text-sm text-light-text dark:text-dark-text">
-                          {resource.type === 'file' ? formatFileSize(resource.file_size) : '-'}
+                          {node.type === 'file' ? formatFileSize(node.file_size) : '-'}
                         </td>
                         <td className="px-4 py-3 text-sm text-light-text dark:text-dark-text">
-                          {new Date(resource.updated_at).toLocaleDateString()}
+                          {new Date(node.updated_at).toLocaleDateString()}
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex space-x-2">
-                            {resource.type === 'file' && (
-                              <button onClick={() => handleDownload(resource)} className="text-blue-600 dark:text-blue-400 hover:underline text-sm">Download</button>
+                            {node.type === 'file' && (
+                              <button onClick={() => handleDownload(node)} className="text-blue-600 dark:text-blue-400 hover:underline text-sm">Download</button>
                             )}
-                            <button onClick={() => openRenameDialog(resource)} className="text-yellow-600 dark:text-yellow-400 hover:underline text-sm">Rename</button>
-                            <button onClick={() => openShareDialog(resource)} className="text-green-600 dark:text-green-400 hover:underline text-sm">Share</button>
-                            <button onClick={() => openPermissions(resource)} className="text-purple-600 dark:text-purple-400 hover:underline text-sm">Permissions</button>
-                            <button onClick={() => handleDelete(resource)} className="text-red-600 dark:text-red-400 hover:underline text-sm">Delete</button>
+                            <button onClick={() => openRenameDialog(node)} className="text-yellow-600 dark:text-yellow-400 hover:underline text-sm">Rename</button>
+                            <button onClick={() => openShareDialog(node)} className="text-green-600 dark:text-green-400 hover:underline text-sm">Share</button>
+                            <button onClick={() => openPermissions(node)} className="text-purple-600 dark:text-purple-400 hover:underline text-sm">Permissions</button>
+                            <button onClick={() => handleDelete(node)} className="text-red-600 dark:text-red-400 hover:underline text-sm">Delete</button>
                           </div>
                         </td>
                       </tr>
                     ))}
-                    {resources.length === 0 && (
+                    {nodes.length === 0 && (
                       <tr>
                         <td colSpan="5" className="px-4 py-8 text-center text-light-text-secondary dark:text-dark-text-secondary">
                           This folder is empty
@@ -525,7 +525,7 @@ const FileManager = ({ user, onLogout }) => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-light-surface dark:bg-dark-surface p-6 rounded-lg shadow-xl max-w-md w-full mx-4 border border-light-border dark:border-dark-border">
             <h2 className="text-xl font-bold mb-4 text-light-text dark:text-dark-text">
-              Share "{selectedResource?.name}"
+              Share "{selectedNode?.name}"
             </h2>
             <div className="mb-4">
               <label className="block text-sm font-medium mb-2 text-light-text dark:text-dark-text">
@@ -575,7 +575,7 @@ const FileManager = ({ user, onLogout }) => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-light-surface dark:bg-dark-surface p-6 rounded-lg shadow-xl max-w-2xl w-full mx-4 border border-light-border dark:border-dark-border">
             <h2 className="text-xl font-bold mb-4 text-light-text dark:text-dark-text">
-              Permissions for "{selectedResource?.name}"
+              Permissions for "{selectedNode?.name}"
             </h2>
             <table className="min-w-full mb-4">
               <thead>
@@ -620,7 +620,7 @@ const FileManager = ({ user, onLogout }) => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-light-surface dark:bg-dark-surface p-6 rounded-lg shadow-xl max-w-md w-full mx-4 border border-light-border dark:border-dark-border">
             <h2 className="text-xl font-bold mb-4 text-light-text dark:text-dark-text">
-              Rename "{selectedResource?.name}"
+              Rename "{selectedNode?.name}"
             </h2>
             <input
               type="text"

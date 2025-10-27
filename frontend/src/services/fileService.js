@@ -21,12 +21,12 @@ const getAuthHeaders = () => {
 };
 
 /**
- * List resources in a folder.
+ * List nodes in a folder.
  *
  * @param {number|null} parentId - Parent folder ID (null for root).
- * @returns {Promise<Object>} Response with resources list.
+ * @returns {Promise<Object>} Response with nodes list.
  */
-export const listResources = async (parentId = null) => {
+export const listNodes = async (parentId = null) => {
   const url = parentId
     ? `${API_URL}/api/files/list?parent_id=${parentId}`
     : `${API_URL}/api/files/list`;
@@ -85,12 +85,12 @@ export const uploadFile = async (file, parentId = null) => {
 /**
  * Download a file.
  *
- * @param {number} resourceId - Resource ID.
+ * @param {number} nodeId - Node ID.
  * @param {string} fileName - File name for download.
  * @returns {Promise<void>}
  */
-export const downloadFile = async (resourceId, fileName) => {
-  const response = await fetch(`${API_URL}/api/files/download/${resourceId}`, {
+export const downloadFile = async (nodeId, fileName) => {
+  const response = await fetch(`${API_URL}/api/files/download/${nodeId}`, {
     method: "GET",
     headers: getAuthHeaders(),
   });
@@ -111,13 +111,13 @@ export const downloadFile = async (resourceId, fileName) => {
 };
 
 /**
- * Get resource details.
+ * Get node details.
  *
- * @param {number} resourceId - Resource ID.
- * @returns {Promise<Object>} Response with resource data.
+ * @param {number} nodeId - Node ID.
+ * @returns {Promise<Object>} Response with node data.
  */
-export const getResource = async (resourceId) => {
-  const response = await fetch(`${API_URL}/api/files/${resourceId}`, {
+export const getNode = async (nodeId) => {
+  const response = await fetch(`${API_URL}/api/files/${nodeId}`, {
     method: "GET",
     headers: getAuthHeaders(),
   });
@@ -126,14 +126,14 @@ export const getResource = async (resourceId) => {
 };
 
 /**
- * Update resource (rename/move).
+ * Update node (rename/move).
  *
- * @param {number} resourceId - Resource ID.
+ * @param {number} nodeId - Node ID.
  * @param {Object} data - Update data (name, parent_id).
- * @returns {Promise<Object>} Response with updated resource data.
+ * @returns {Promise<Object>} Response with updated node data.
  */
-export const updateResource = async (resourceId, data) => {
-  const response = await fetch(`${API_URL}/api/files/${resourceId}`, {
+export const updateNode = async (nodeId, data) => {
+  const response = await fetch(`${API_URL}/api/files/${nodeId}`, {
     method: "PUT",
     headers: {
       ...getAuthHeaders(),
@@ -146,13 +146,13 @@ export const updateResource = async (resourceId, data) => {
 };
 
 /**
- * Delete a resource.
+ * Delete a node.
  *
- * @param {number} resourceId - Resource ID.
+ * @param {number} nodeId - Node ID.
  * @returns {Promise<Object>} Response with success message.
  */
-export const deleteResource = async (resourceId) => {
-  const response = await fetch(`${API_URL}/api/files/${resourceId}`, {
+export const deleteNode = async (nodeId) => {
+  const response = await fetch(`${API_URL}/api/files/${nodeId}`, {
     method: "DELETE",
     headers: getAuthHeaders(),
   });
@@ -161,15 +161,15 @@ export const deleteResource = async (resourceId) => {
 };
 
 /**
- * Share a resource with another user.
+ * Share a node with another user.
  *
- * @param {number} resourceId - Resource ID.
+ * @param {number} nodeId - Node ID.
  * @param {number} userId - User ID to share with.
  * @param {string} permissionLevel - Permission level (owner, editor, viewer).
  * @returns {Promise<Object>} Response with success message.
  */
-export const shareResource = async (resourceId, userId, permissionLevel) => {
-  const response = await fetch(`${API_URL}/api/files/${resourceId}/share`, {
+export const shareNode = async (nodeId, userId, permissionLevel) => {
+  const response = await fetch(`${API_URL}/api/files/${nodeId}/share`, {
     method: "POST",
     headers: {
       ...getAuthHeaders(),
@@ -185,13 +185,13 @@ export const shareResource = async (resourceId, userId, permissionLevel) => {
 };
 
 /**
- * Get permissions for a resource.
+ * Get permissions for a node.
  *
- * @param {number} resourceId - Resource ID.
+ * @param {number} nodeId - Node ID.
  * @returns {Promise<Object>} Response with permissions list.
  */
-export const getPermissions = async (resourceId) => {
-  const response = await fetch(`${API_URL}/api/files/${resourceId}/share`, {
+export const getPermissions = async (nodeId) => {
+  const response = await fetch(`${API_URL}/api/files/${nodeId}/share`, {
     method: "GET",
     headers: getAuthHeaders(),
   });
@@ -202,13 +202,13 @@ export const getPermissions = async (resourceId) => {
 /**
  * Remove a user's permission.
  *
- * @param {number} resourceId - Resource ID.
+ * @param {number} nodeId - Node ID.
  * @param {number} userId - User ID to remove permission from.
  * @returns {Promise<Object>} Response with success message.
  */
-export const removePermission = async (resourceId, userId) => {
+export const removePermission = async (nodeId, userId) => {
   const response = await fetch(
-    `${API_URL}/api/files/${resourceId}/share/${userId}`,
+    `${API_URL}/api/files/${nodeId}/share/${userId}`,
     {
       method: "DELETE",
       headers: getAuthHeaders(),
