@@ -25,6 +25,16 @@ const FileManager = ({ user, onLogout }) => {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    page_size: 50,
+    total: 0,
+    total_pages: 1,
+    has_next: false,
+    has_prev: false
+  });
   const [showCreateFolder, setShowCreateFolder] = useState(false);
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [showPermissions, setShowPermissions] = useState(false);
@@ -43,13 +53,15 @@ const FileManager = ({ user, onLogout }) => {
   const [viewMode, setViewMode] = useState("list");
   const fileInputRef = useRef(null);
 
-  const loadNodes = useCallback(async () => {
+  const loadNodes = useCallback(async (page = currentPage) => {
     setLoading(true);
     setError(null);
     try {
-      const response = await listNodes(currentFolder);
-      if (response.nodes) {
+      const response = await listNodes(currentFolder, page, pageSize);
+      if (response.nodes && response.pagination) {
         setNodes(response.nodes);
+        setPagination(response.pagination);
+        setCurrentPage(response.pagination.page);
       } else if (response.message) {
         setError(response.message);
       }
@@ -59,11 +71,16 @@ const FileManager = ({ user, onLogout }) => {
     } finally {
       setLoading(false);
     }
-  }, [currentFolder]);
+  }, [currentFolder, currentPage, pageSize]);
 
   useEffect(() => {
-    loadNodes();
-  }, [loadNodes]);
+    loadNodes(1);
+    setCurrentPage(1);
+  }, [currentFolder, pageSize]);
+
+  useEffect(() => {
+    loadNodes(currentPage);
+  }, [currentPage]);
 
   const navigateToFolder = (folder) => {
     const newPath = [...path, folder];
@@ -506,7 +523,7 @@ const FileManager = ({ user, onLogout }) => {
               className="hidden"
             />
             <button
-              onClick={loadNodes}
+              onClick={() => loadNodes(currentPage)}
               className="p-1.5 text-light-text-secondary dark:text-dark-text-secondary hover:bg-light-bg dark:hover:bg-dark-bg rounded-lg transition-colors"
             >
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
@@ -556,32 +573,33 @@ const FileManager = ({ user, onLogout }) => {
             </div>
           )}
 
-          <div className="flex-1 overflow-auto p-4">
-            {loading ? (
-              <div className="flex items-center justify-center h-full">
-                <div className="flex items-center space-x-2 text-light-text-secondary dark:text-dark-text-secondary">
-                  <svg
-                    className="w-5 h-5 animate-spin"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    />
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    />
-                  </svg>
-                  <span>Loading...</span>
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <div className="flex-1 overflow-auto p-4">
+              {loading ? (
+                <div className="flex items-center justify-center h-full">
+                  <div className="flex items-center space-x-2 text-light-text-secondary dark:text-dark-text-secondary">
+                    <svg
+                      className="w-5 h-5 animate-spin"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      />
+                    </svg>
+                    <span>Loading...</span>
+                  </div>
                 </div>
-              </div>
             ) : viewMode === "grid" ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
                 {nodes.map((node) => (
@@ -830,6 +848,71 @@ const FileManager = ({ user, onLogout }) => {
                     )}
                   </tbody>
                 </table>
+              </div>
+              )}
+            </div>
+
+            {/* Pagination Controls */}
+            {pagination.total > 0 && (
+              <div className="bg-light-surface dark:bg-dark-surface border-t border-light-border dark:border-dark-border px-4 py-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-4">
+                    <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary">
+                      Showing {((pagination.page - 1) * pagination.page_size) + 1} to{' '}
+                      {Math.min(pagination.page * pagination.page_size, pagination.total)} of{' '}
+                      {pagination.total} items
+                    </p>
+                    <div className="flex items-center space-x-2">
+                      <label className="text-sm text-light-text-secondary dark:text-dark-text-secondary">
+                        Items per page:
+                      </label>
+                      <select
+                        value={pageSize}
+                        onChange={(e) => setPageSize(parseInt(e.target.value))}
+                        className="px-2 py-1 border border-light-border dark:border-dark-border rounded bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text text-sm"
+                      >
+                        <option value="25">25</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                        <option value="200">200</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => setCurrentPage(1)}
+                      disabled={!pagination.has_prev}
+                      className="px-3 py-1 text-sm border border-light-border dark:border-dark-border rounded bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text disabled:opacity-50 disabled:cursor-not-allowed hover:bg-light-border dark:hover:bg-dark-border"
+                    >
+                      First
+                    </button>
+                    <button
+                      onClick={() => setCurrentPage(currentPage - 1)}
+                      disabled={!pagination.has_prev}
+                      className="px-3 py-1 text-sm border border-light-border dark:border-dark-border rounded bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text disabled:opacity-50 disabled:cursor-not-allowed hover:bg-light-border dark:hover:bg-dark-border"
+                    >
+                      Previous
+                    </button>
+                    <span className="px-3 py-1 text-sm text-light-text dark:text-dark-text">
+                      Page {pagination.page} of {pagination.total_pages}
+                    </span>
+                    <button
+                      onClick={() => setCurrentPage(currentPage + 1)}
+                      disabled={!pagination.has_next}
+                      className="px-3 py-1 text-sm border border-light-border dark:border-dark-border rounded bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text disabled:opacity-50 disabled:cursor-not-allowed hover:bg-light-border dark:hover:bg-dark-border"
+                    >
+                      Next
+                    </button>
+                    <button
+                      onClick={() => setCurrentPage(pagination.total_pages)}
+                      disabled={!pagination.has_next}
+                      className="px-3 py-1 text-sm border border-light-border dark:border-dark-border rounded bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text disabled:opacity-50 disabled:cursor-not-allowed hover:bg-light-border dark:hover:bg-dark-border"
+                    >
+                      Last
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
           </div>

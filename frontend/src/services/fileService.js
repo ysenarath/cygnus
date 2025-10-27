@@ -21,17 +21,22 @@ const getAuthHeaders = () => {
 };
 
 /**
- * List nodes in a folder.
+ * List nodes in a folder with pagination support.
  *
  * @param {number|null} parentId - Parent folder ID (null for root).
- * @returns {Promise<Object>} Response with nodes list.
+ * @param {number} page - Page number (default: 1).
+ * @param {number} pageSize - Number of items per page (default: 50).
+ * @returns {Promise<Object>} Response with nodes list and pagination metadata.
  */
-export const listNodes = async (parentId = null) => {
-  const url = parentId
-    ? `${API_URL}/api/files/list?parent_id=${parentId}`
-    : `${API_URL}/api/files/list`;
+export const listNodes = async (parentId = null, page = 1, pageSize = 50) => {
+  const params = new URLSearchParams();
+  if (parentId) {
+    params.append('parent_id', parentId);
+  }
+  params.append('page', page);
+  params.append('page_size', pageSize);
 
-  const response = await fetch(url, {
+  const response = await fetch(`${API_URL}/api/files/list?${params}`, {
     method: "GET",
     headers: getAuthHeaders(),
   });

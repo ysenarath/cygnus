@@ -723,19 +723,19 @@ class NodeList(Resource):
     Methods
     -------
     get()
-        List nodes in a folder.
+        List nodes in a folder with pagination support.
     """
 
     @jwt_required()
     @api.response(200, "Nodes retrieved successfully")
     def get(self):
         """
-        List nodes accessible to the user.
+        List nodes accessible to the user with pagination.
 
         Returns
         -------
         dict
-            List of nodes.
+            List of nodes with pagination metadata.
         int
             HTTP status code.
         """
@@ -743,6 +743,16 @@ class NodeList(Resource):
         try:
             user_id = int(get_jwt_identity())
             parent_id = request.args.get("parent_id")
+            
+            # Pagination parameters
+            page = int(request.args.get("page", 1))
+            page_size = int(request.args.get("page_size", 50))
+            
+            # Validate pagination parameters
+            if page < 1:
+                page = 1
+            if page_size < 1 or page_size > 500:
+                page_size = 50
 
             if parent_id:
                 parent_id = int(parent_id)
@@ -759,11 +769,26 @@ class NodeList(Resource):
                 if not has_permission(session, parent_id, user_id, "viewer"):
                     return {"message": "No permission to access this folder"}, 403
 
-            nodes = get_accessible_nodes(session, user_id, parent_id)
+            # Get all accessible nodes
+            all_nodes = get_accessible_nodes(session, user_id, parent_id)
+            total_count = len(all_nodes)
+            
+            # Calculate pagination
+            start_idx = (page - 1) * page_size
+            end_idx = start_idx + page_size
+            paginated_nodes = all_nodes[start_idx:end_idx]
+            total_pages = (total_count + page_size - 1) // page_size if total_count > 0 else 1
 
             return {
-                "nodes": [r.to_dict() for r in nodes],
-                "count": len(nodes),
+                "nodes": [r.to_dict() for r in paginated_nodes],
+                "pagination": {
+                    "page": page,
+                    "page_size": page_size,
+                    "total": total_count,
+                    "total_pages": total_pages,
+                    "has_next": page < total_pages,
+                    "has_prev": page > 1
+                }
             }, 200
         except Exception as e:
             return {"message": f"Error listing nodes: {str(e)}"}, 500
