@@ -625,7 +625,7 @@ const FileManager = ({ user, onLogout }) => {
                   {selectedNodes.filter((id) => nodes.find((n) => n.id === id && n.type === "file")).length > 0 && (
                     <button
                       onClick={handleBulkDownload}
-                      className="flex items-center space-x-1.5 px-3 py-1.5 text-sm font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                      className="flex items-center space-x-1.5 px-3 py-1.5 text-sm font-medium text-light-text dark:text-dark-text bg-light-bg dark:bg-dark-bg hover:bg-light-border dark:hover:bg-dark-border rounded-lg transition-colors"
                       title="Download"
                     >
                       <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
@@ -636,7 +636,7 @@ const FileManager = ({ user, onLogout }) => {
                   )}
                   <button
                     onClick={handleBulkMove}
-                    className="flex items-center space-x-1.5 px-3 py-1.5 text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-colors"
+                    className="flex items-center space-x-1.5 px-3 py-1.5 text-sm font-medium text-light-text dark:text-dark-text bg-light-bg dark:bg-dark-bg hover:bg-light-border dark:hover:bg-dark-border rounded-lg transition-colors"
                     title="Move"
                   >
                     <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
@@ -648,7 +648,7 @@ const FileManager = ({ user, onLogout }) => {
                     <>
                       <button
                         onClick={handleBulkRename}
-                        className="flex items-center space-x-1.5 px-3 py-1.5 text-sm font-medium text-yellow-600 dark:text-yellow-400 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 rounded-lg transition-colors"
+                        className="flex items-center space-x-1.5 px-3 py-1.5 text-sm font-medium text-light-text dark:text-dark-text bg-light-bg dark:bg-dark-bg hover:bg-light-border dark:hover:bg-dark-border rounded-lg transition-colors"
                         title="Rename"
                       >
                         <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
@@ -658,7 +658,7 @@ const FileManager = ({ user, onLogout }) => {
                       </button>
                       <button
                         onClick={handleBulkShare}
-                        className="flex items-center space-x-1.5 px-3 py-1.5 text-sm font-medium text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-colors"
+                        className="flex items-center space-x-1.5 px-3 py-1.5 text-sm font-medium text-light-text dark:text-dark-text bg-light-bg dark:bg-dark-bg hover:bg-light-border dark:hover:bg-dark-border rounded-lg transition-colors"
                         title="Share"
                       >
                         <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
@@ -668,7 +668,7 @@ const FileManager = ({ user, onLogout }) => {
                       </button>
                       <button
                         onClick={handleBulkPermissions}
-                        className="flex items-center space-x-1.5 px-3 py-1.5 text-sm font-medium text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg transition-colors"
+                        className="flex items-center space-x-1.5 px-3 py-1.5 text-sm font-medium text-light-text dark:text-dark-text bg-light-bg dark:bg-dark-bg hover:bg-light-border dark:hover:bg-dark-border rounded-lg transition-colors"
                         title="Permissions"
                       >
                         <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
