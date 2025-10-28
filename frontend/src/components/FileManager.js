@@ -87,6 +87,7 @@ const FileManager = ({ user, onLogout }) => {
     const newPath = [...path, folder];
     setCurrentFolder(folder.id);
     setPath(newPath);
+    setSelectedNodes([]);
     localStorage.setItem("currentFolder", JSON.stringify(folder.id));
     localStorage.setItem("folderPath", JSON.stringify(newPath));
   };
@@ -95,6 +96,7 @@ const FileManager = ({ user, onLogout }) => {
     if (index === -1) {
       setCurrentFolder(null);
       setPath([]);
+      setSelectedNodes([]);
       localStorage.removeItem("currentFolder");
       localStorage.removeItem("folderPath");
     } else {
@@ -102,6 +104,7 @@ const FileManager = ({ user, onLogout }) => {
       const folderId = newPath[newPath.length - 1].id;
       setCurrentFolder(folderId);
       setPath(newPath);
+      setSelectedNodes([]);
       localStorage.setItem("currentFolder", JSON.stringify(folderId));
       localStorage.setItem("folderPath", JSON.stringify(newPath));
     }
