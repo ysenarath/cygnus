@@ -42,7 +42,7 @@ function Dashboard({ user, onLogout }) {
                   onClick={() => setCurrentView("dashboard")}
                   className={`px-3 py-2 rounded-md text-sm font-medium ${
                     currentView === "dashboard"
-                      ? "bg-light-primary dark:bg-dark-primary text-white"
+                      ? "bg-light-primary dark:bg-dark-primary text-white dark:text-black"
                       : "text-light-text dark:text-dark-text hover:bg-light-surface dark:hover:bg-dark-bg"
                   }`}
                 >
@@ -52,7 +52,7 @@ function Dashboard({ user, onLogout }) {
                   onClick={() => setCurrentView("files")}
                   className={`px-3 py-2 rounded-md text-sm font-medium ${
                     currentView === "files"
-                      ? "bg-light-primary dark:bg-dark-primary text-white"
+                      ? "bg-light-primary dark:bg-dark-primary text-white dark:text-black"
                       : "text-light-text dark:text-dark-text hover:bg-light-surface dark:hover:bg-dark-bg"
                   }`}
                 >
@@ -151,7 +151,7 @@ function Dashboard({ user, onLogout }) {
                   <button
                     onClick={handleGetProfile}
                     disabled={loading}
-                    className="bg-light-primary dark:bg-dark-primary text-white px-4 py-2 rounded-md hover:bg-light-primary-hover dark:hover:bg-dark-primary-hover focus:outline-none focus:ring-2 focus:ring-light-primary dark:focus:ring-dark-primary disabled:opacity-50 transition-colors"
+                    className="bg-light-primary dark:bg-dark-primary text-white dark:text-black px-4 py-2 rounded-md hover:bg-light-primary-hover dark:hover:bg-dark-primary-hover focus:outline-none focus:ring-2 focus:ring-light-primary dark:focus:ring-dark-primary disabled:opacity-50 transition-colors"
                   >
                     {loading
                       ? "Loading..."

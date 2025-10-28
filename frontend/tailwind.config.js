@@ -5,25 +5,25 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        // Light theme colors
+        // Light theme colors - Black/Neutral
         light: {
           bg: "#ffffff",
-          surface: "#f8f9fa",
-          text: "#1a202c",
-          "text-secondary": "#4a5568",
-          border: "#e2e8f0",
-          primary: "#3b82f6",
-          "primary-hover": "#2563eb",
+          surface: "#fafafa",
+          text: "#0a0a0a",
+          "text-secondary": "#737373",
+          border: "#e5e5e5",
+          primary: "#171717",
+          "primary-hover": "#0a0a0a",
         },
-        // Dark theme colors
+        // Dark theme colors - Black/Neutral
         dark: {
-          bg: "#1a202c",
-          surface: "#2d3748",
-          text: "#f7fafc",
-          "text-secondary": "#cbd5e0",
-          border: "#4a5568",
-          primary: "#60a5fa",
-          "primary-hover": "#3b82f6",
+          bg: "#0a0a0a",
+          surface: "#262626",
+          text: "#fafafa",
+          "text-secondary": "#a3a3a3",
+          border: "#262626",
+          primary: "#fafafa",
+          "primary-hover": "#e5e5e5",
         },
         // shadcn/ui colors
         border: "hsl(var(--border))",

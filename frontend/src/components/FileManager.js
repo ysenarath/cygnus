@@ -700,7 +700,7 @@ const FileManager = ({ user, onLogout }) => {
                 </button>
                 <button
                   onClick={() => fileInputRef.current.click()}
-                  className="flex items-center space-x-1.5 px-3 py-1.5 text-sm font-medium text-white bg-light-primary dark:bg-dark-primary hover:bg-light-primary-hover dark:hover:bg-dark-primary-hover rounded-lg transition-colors"
+                  className="flex items-center space-x-1.5 px-3 py-1.5 text-sm font-medium text-white dark:text-black bg-light-primary dark:bg-dark-primary hover:bg-light-primary-hover dark:hover:bg-dark-primary-hover rounded-lg transition-colors"
                 >
                   <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                     <path
@@ -1050,7 +1050,7 @@ const FileManager = ({ user, onLogout }) => {
               </button>
               <button
                 onClick={handleCreateFolder}
-                className="px-4 py-2 bg-light-primary dark:bg-dark-primary text-white rounded hover:bg-light-primary-hover dark:hover:bg-dark-primary-hover"
+                className="px-4 py-2 bg-light-primary dark:bg-dark-primary text-white dark:text-black rounded hover:bg-light-primary-hover dark:hover:bg-dark-primary-hover"
               >
                 Create
               </button>
@@ -1190,7 +1190,7 @@ const FileManager = ({ user, onLogout }) => {
               </button>
               <button
                 onClick={handleRename}
-                className="px-4 py-2 bg-light-primary dark:bg-dark-primary text-white rounded hover:bg-light-primary-hover dark:hover:bg-dark-primary-hover"
+                className="px-4 py-2 bg-light-primary dark:bg-dark-primary text-white dark:text-black rounded hover:bg-light-primary-hover dark:hover:bg-dark-primary-hover"
               >
                 Rename
               </button>

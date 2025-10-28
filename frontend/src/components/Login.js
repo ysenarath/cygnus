@@ -85,7 +85,7 @@ function Login({ onLoginSuccess, onSwitchToRegister }) {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-light-primary dark:bg-dark-primary text-white py-2 px-4 rounded-md hover:bg-light-primary-hover dark:hover:bg-dark-primary-hover focus:outline-none focus:ring-2 focus:ring-light-primary dark:focus:ring-dark-primary disabled:opacity-50 transition-colors"
+            className="w-full bg-light-primary dark:bg-dark-primary text-white dark:text-black py-2 px-4 rounded-md hover:bg-light-primary-hover dark:hover:bg-dark-primary-hover focus:outline-none focus:ring-2 focus:ring-light-primary dark:focus:ring-dark-primary disabled:opacity-50 transition-colors"
           >
             {loading ? "Logging in..." : "Login"}
           </button>
