@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { Link } from "react-router-dom";
 import {
   listNodes,
   createFolder,
@@ -501,6 +502,13 @@ const FileManager = ({ user, onLogout }) => {
           </div>
 
           <div className="flex items-center space-x-4">
+            <Link
+              to="/"
+              className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors"
+            >
+              Search
+            </Link>
+            
             <div className="flex items-center space-x-2 px-3 py-1.5 rounded-lg bg-light-bg dark:bg-dark-bg">
               <div className="w-7 h-7 bg-gradient-to-br from-light-primary to-light-primary-hover dark:from-dark-primary dark:to-dark-primary-hover rounded-full flex items-center justify-center">
                 <svg

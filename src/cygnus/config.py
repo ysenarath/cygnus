@@ -7,6 +7,7 @@ dataclasses and provides a function to load and validate the config.
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import List
 from omegaconf import OmegaConf
 
 
@@ -114,6 +115,38 @@ class StorageConfig:
 
 
 @dataclass
+class IndexingConfig:
+    """
+    Indexing configuration.
+
+    Parameters
+    ----------
+    num_workers : int
+        Number of background worker threads for document indexing.
+    chunk_size : int
+        Maximum size of text chunks in characters.
+    chunk_overlap : int
+        Number of overlapping characters between chunks.
+    chunking_strategy : str
+        Strategy for chunking text ("semantic" or "fixed").
+    max_retries : int
+        Maximum number of retry attempts for failed indexing.
+    embedding_model : str
+        Name of the sentence-transformer model to use for embeddings.
+    supported_formats : List[str]
+        List of supported file formats for indexing.
+    """
+
+    num_workers: int
+    chunk_size: int
+    chunk_overlap: int
+    chunking_strategy: str
+    max_retries: int
+    embedding_model: str
+    supported_formats: List[str]
+
+
+@dataclass
 class Config:
     """
     Main configuration class.
@@ -130,6 +163,8 @@ class Config:
         Security configuration.
     storage : StorageConfig
         Storage configuration.
+    indexing : IndexingConfig
+        Indexing configuration.
     """
 
     app: AppConfig
@@ -137,6 +172,7 @@ class Config:
     api: ApiConfig
     security: SecurityConfig
     storage: StorageConfig
+    indexing: IndexingConfig
 
 
 def load_config(path: Path | str | None = None) -> Config:

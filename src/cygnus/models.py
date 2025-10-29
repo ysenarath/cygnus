@@ -49,6 +49,27 @@ class NodeType(PyEnum):
     FOLDER = "folder"
 
 
+class IndexingStatus(PyEnum):
+    """
+    Enumeration for document indexing status.
+    
+    Attributes
+    ----------
+    PENDING : str
+        Document is queued for indexing.
+    PROCESSING : str
+        Document is currently being indexed.
+    COMPLETED : str
+        Document indexing completed successfully.
+    FAILED : str
+        Document indexing failed.
+    """
+    PENDING = "pending"
+    PROCESSING = "processing"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
 class User(Base):
     """
     User model for authentication.
@@ -261,5 +282,67 @@ class Permission(Base):
             "user_id": self.user_id,
             "username": self.user.username if self.user else None,
             "permission_level": self.permission_level.value,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+class Document(Base):
+    """
+    Document indexing tracking model.
+
+    Links to Node model for file information.
+    Tracks indexing status and metadata.
+
+    Attributes
+    ----------
+    id : int
+        Primary key for the document.
+    node_id : int
+        Foreign key to nodes table.
+    status : IndexingStatus
+        Current indexing status.
+    indexed_date : datetime
+        Timestamp when indexing completed.
+    chunk_count : int
+        Number of chunks created from the document.
+    error_message : str
+        Error details if indexing failed.
+    retry_count : int
+        Number of retry attempts made.
+    created_at : datetime
+        Timestamp when the document record was created.
+    """
+
+    __tablename__ = "documents"
+
+    id = Column(Integer, primary_key=True)
+    node_id = Column(Integer, ForeignKey("nodes.id"), nullable=False)
+    status = Column(Enum(IndexingStatus), default=IndexingStatus.PENDING)
+    indexed_date = Column(DateTime, nullable=True)
+    chunk_count = Column(Integer, default=0)
+    error_message = Column(String(1000), nullable=True)
+    retry_count = Column(Integer, default=0)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relationship to Node
+    node = relationship("Node", backref="document_index")
+
+    def to_dict(self):
+        """
+        Convert the document object to a dictionary.
+
+        Returns
+        -------
+        dict
+            A dictionary representation of the document.
+        """
+        return {
+            "id": self.id,
+            "node_id": self.node_id,
+            "status": self.status.value,
+            "indexed_date": self.indexed_date.isoformat() if self.indexed_date else None,
+            "chunk_count": self.chunk_count,
+            "error_message": self.error_message,
+            "retry_count": self.retry_count,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }

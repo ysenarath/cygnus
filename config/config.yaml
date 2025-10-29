@@ -23,3 +23,18 @@ security:
 
 storage:
   directory: instance/storage  # Directory for uploaded files (relative to project root)
+
+indexing:
+  num_workers: 2
+  chunk_size: 500  # Max characters per chunk
+  chunk_overlap: 50  # Characters to overlap between chunks
+  chunking_strategy: semantic  # "semantic" or "fixed" - semantic respects sentence/paragraph boundaries
+  max_retries: 3
+  embedding_model: all-MiniLM-L6-v2
+  supported_formats:
+    - pdf
+    - docx
+    - pptx
+    - html
+    - txt
+    - images

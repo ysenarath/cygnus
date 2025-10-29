@@ -30,8 +30,11 @@ from cygnus.models import (
     Permission,
     PermissionLevel,
     NodeType,
+    Document,
+    IndexingStatus,
 )
 from cygnus.config import load_config
+from cygnus.indexer import get_indexer
 
 # Load configuration
 config = load_config()
@@ -702,11 +705,19 @@ class FileUpload(Resource):
                 permission_level=PermissionLevel.OWNER,
             )
             session.add(permission)
+            
+            # Create document indexing record
+            document = Document(
+                node_id=file_node.id,
+                status=IndexingStatus.PENDING,
+            )
+            session.add(document)
             session.commit()
 
             return {
                 "message": "File uploaded successfully",
                 "file": file_node.to_dict(),
+                "document_id": document.id,
             }, 201
         except Exception as e:
             session.rollback()
@@ -1247,6 +1258,161 @@ class NodeDetail(Resource):
             return {"message": f"Error deleting node: {str(e)}"}, 500
         finally:
             session.close()
+
+
+@files_ns.route("/<int:node_id>/indexing-status")
+class FileIndexingStatus(Resource):
+    """
+    Document indexing status endpoint.
+
+    Methods
+    -------
+    get()
+        Get indexing status for a file.
+    """
+
+    @jwt_required()
+    @api.response(200, "Indexing status retrieved successfully")
+    @api.response(404, "File not found")
+    def get(self, node_id):
+        """
+        Get indexing status for a file.
+
+        Parameters
+        ----------
+        node_id : int
+            Node ID.
+
+        Returns
+        -------
+        dict
+            Indexing status and metadata.
+        int
+            HTTP status code.
+        """
+        session = Session()
+        try:
+            user_id = int(get_jwt_identity())
+
+            # Get node
+            node = (
+                session.query(Node)
+                .filter_by(id=node_id, node_type=NodeType.FILE, is_deleted=False)
+                .first()
+            )
+
+            if not node:
+                return {"message": "File not found"}, 404
+
+            if not has_permission(session, node_id, user_id, "viewer"):
+                return {"message": "No permission to access this file"}, 403
+
+            # Get document indexing record
+            document = session.query(Document).filter_by(node_id=node_id).first()
+
+            if not document:
+                return {
+                    "status": "not_indexed",
+                    "message": "File has not been queued for indexing"
+                }, 200
+
+            return {
+                "file": {
+                    "id": node.id,
+                    "name": node.name,
+                    "size": node.file_size,
+                    "mime_type": node.mime_type,
+                },
+                "indexing": document.to_dict(),
+            }, 200
+        except Exception as e:
+            return {"message": f"Error retrieving indexing status: {str(e)}"}, 500
+        finally:
+            session.close()
+
+
+@files_ns.route("/search")
+class DocumentSearch(Resource):
+    """
+    Document search endpoint.
+
+    Methods
+    -------
+    post()
+        Search documents using semantic search.
+    """
+
+    @jwt_required()
+    @api.response(200, "Search completed successfully")
+    def post(self):
+        """
+        Search documents using semantic search.
+
+        Returns
+        -------
+        dict
+            Search results.
+        int
+            HTTP status code.
+        """
+        try:
+            data = request.json
+
+            if not data or not data.get("query"):
+                return {"message": "Query is required"}, 400
+
+            query = data.get("query")
+            n_results = data.get("n_results", 10)
+
+            # Validate n_results
+            if n_results < 1 or n_results > 100:
+                n_results = 10
+
+            # Get indexer and perform search
+            indexer = get_indexer()
+            results = indexer.search(query, n_results=n_results)
+
+            return {
+                "query": query,
+                "results": results,
+                "count": len(results),
+            }, 200
+        except Exception as e:
+            return {"message": f"Error searching documents: {str(e)}"}, 500
+
+
+@files_ns.route("/stats")
+class IndexingStats(Resource):
+    """
+    Indexing statistics endpoint.
+
+    Methods
+    -------
+    get()
+        Get indexing statistics.
+    """
+
+    @jwt_required()
+    @api.response(200, "Statistics retrieved successfully")
+    def get(self):
+        """
+        Get indexing statistics.
+
+        Returns
+        -------
+        dict
+            Indexing statistics.
+        int
+            HTTP status code.
+        """
+        try:
+            # Get indexer and retrieve stats
+            indexer = get_indexer()
+            stats = indexer.get_stats()
+
+            return {"stats": stats}, 200
+        except Exception as e:
+            return {"message": f"Error retrieving statistics: {str(e)}"}, 500
 
 
 def run_app():

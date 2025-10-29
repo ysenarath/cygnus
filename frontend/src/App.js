@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from "react";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import Login from "./components/Login";
 import Register from "./components/Register";
 import FileManager from "./components/FileManager";
+import Search from "./components/Search";
 import { ThemeProvider } from "./context/ThemeContext";
 import authService from "./services/authService";
 
@@ -45,7 +47,13 @@ function App() {
     <ThemeProvider>
       <div className="min-h-screen bg-light-bg dark:bg-dark-bg transition-colors duration-200">
         {currentUser ? (
-          <FileManager user={currentUser} onLogout={handleLogout} />
+          <Router>
+            <Routes>
+              <Route path="/" element={<Search user={currentUser} onLogout={handleLogout} />} />
+              <Route path="/files" element={<FileManager user={currentUser} onLogout={handleLogout} />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </Router>
         ) : currentView === "register" ? (
           <Register
             onRegisterSuccess={handleRegisterSuccess}
